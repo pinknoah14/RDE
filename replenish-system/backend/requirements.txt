@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+polars
+slack-sdk
+python-multipart
+python-jose
+pytest
+pytest-asyncio
+httpx
