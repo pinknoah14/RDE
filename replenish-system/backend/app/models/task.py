@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from sqlmodel import Field, SQLModel
+from sqlalchemy import UniqueConstraint
 
 
 class ReplenishCandidate(SQLModel, table=True):
@@ -64,6 +65,7 @@ class ReplenishConfirmedTask(SQLModel, table=True):
 
 class ReplenishTaskLocation(SQLModel, table=True):
     __tablename__ = "replenish_task_locations"
+    __table_args__ = (UniqueConstraint("task_id", "seq", name="uq_task_location"),)
 
     location_id: Optional[int] = Field(default=None, primary_key=True)
     task_id: int = Field(foreign_key="replenish_confirmed_tasks.task_id", nullable=False)

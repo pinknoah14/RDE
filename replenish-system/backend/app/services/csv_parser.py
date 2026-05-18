@@ -131,16 +131,26 @@ def classify_inventory(df: pl.DataFrame, session: Session) -> dict[str, pl.DataF
     }
 
 
-def detect_unknown_zones(df: pl.DataFrame, session: Session) -> list[dict]:
-    """zone_config 미등록 존 감지 → unknown_zone_flags UPSERT"""
+def detect_unknown_zones(
+    picking_df: pl.DataFrame,
+    replenish_df: pl.DataFrame,
+    session: Session,
+) -> list[dict]:
+    """
+    zone_config 미등록 존 감지 → unknown_zone_flags UPSERT.
+    보류존(hold) 행은 대상 제외 — bin_id_pattern 미매칭 bin의 가짜 경고 방지.
+    """
     special_zones = get_special_zones(session)
     known_prefixes = {
         z.zone_prefix
         for z in session.exec(select(ZoneConfig)).all()
     }
 
+    # 피킹존 + 보충존만 대상 (보류존 제외)
+    active_df = pl.concat([picking_df, replenish_df], how="diagonal")
+
     unknown: dict[str, str] = {}  # zone_prefix → sample bin_id
-    for row in df.iter_rows(named=True):
+    for row in active_df.iter_rows(named=True):
         bin_id = row.get("지번") or ""
         prefix = extract_zone_prefix(bin_id, special_zones)
         if prefix != "UNKNOWN" and prefix not in known_prefixes:
@@ -203,6 +213,7 @@ def update_picking_history(picking_df: pl.DataFrame, session: Session) -> None:
     low_days = int(get_config("confidence_low_days", session))
 
     today = date.today()
+    special_zones = get_special_zones(session)  # 루프 밖에서 1회만 조회
 
     for row in picking_df.iter_rows(named=True):
         sku_id = row["상품코드"]
@@ -238,7 +249,6 @@ def update_picking_history(picking_df: pl.DataFrame, session: Session) -> None:
             existing.confidence = confidence
             existing.updated_at = datetime.utcnow()
         else:
-            special_zones = get_special_zones(session)
             zone_prefix = extract_zone_prefix(bin_id or "", special_zones)
             session.add(SkuPickingHistory(
                 sku_id=sku_id,

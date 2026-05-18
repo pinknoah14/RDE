@@ -5,6 +5,7 @@ import polars as pl
 import pytest
 
 from app.services.csv_parser import (
+    REQUIRED_COLUMNS,
     classify_inventory,
     detect_multi_picking_bins,
     detect_unknown_zones,
@@ -151,31 +152,38 @@ class TestClassifyInventory:
 
 
 class TestDetectUnknownZones:
-    def test_unknown_zone_detected(self, session):
-        """zone_config에 없는 존 prefix → unknown_zone_flags 등록"""
-        csv_bytes = make_csv(
-            base_row(bin_id="15XX0010001"),
+    def _run(self, session, picking_bytes=None, replenish_bytes=None):
+        """헬퍼: picking_df / replenish_df 를 만들어 detect_unknown_zones 호출"""
+        picking_df = (
+            load_inventory_csv_from_bytes(picking_bytes)
+            if picking_bytes is not None
+            else pl.DataFrame({col: [] for col in REQUIRED_COLUMNS})
         )
-        df = load_inventory_csv_from_bytes(csv_bytes)
-        unknowns = detect_unknown_zones(df, session)
+        replenish_df = (
+            load_inventory_csv_from_bytes(replenish_bytes)
+            if replenish_bytes is not None
+            else pl.DataFrame({col: [] for col in REQUIRED_COLUMNS})
+        )
+        return detect_unknown_zones(picking_df, replenish_df, session)
 
+    def test_unknown_zone_detected(self, session):
+        """피킹존 bin_id의 존 prefix가 zone_config에 없으면 unknown_zone_flags 등록"""
+        csv_bytes = make_csv(base_row(bin_id="15XX0010001", picking="피킹가능"))
+        unknowns = self._run(session, picking_bytes=csv_bytes)
         assert any(u["zone_prefix"] == "XX" for u in unknowns)
 
     def test_known_zone_not_flagged(self, session):
         seed_zone(session, prefix="RA")
-        csv_bytes = make_csv(base_row(bin_id="15RA0010001"))
-        df = load_inventory_csv_from_bytes(csv_bytes)
-        unknowns = detect_unknown_zones(df, session)
-
+        csv_bytes = make_csv(base_row(bin_id="15RA0010001", picking="피킹가능"))
+        unknowns = self._run(session, picking_bytes=csv_bytes)
         assert not any(u["zone_prefix"] == "RA" for u in unknowns)
 
     def test_upsert_increments_seen_count(self, session):
         """같은 미등록 존을 두 번 감지하면 seen_count 증가"""
-        csv_bytes = make_csv(base_row(bin_id="15ZZ0010001"))
-        df = load_inventory_csv_from_bytes(csv_bytes)
+        csv_bytes = make_csv(base_row(bin_id="15ZZ0010001", picking="피킹가능"))
 
-        detect_unknown_zones(df, session)
-        detect_unknown_zones(df, session)
+        self._run(session, picking_bytes=csv_bytes)
+        self._run(session, picking_bytes=csv_bytes)
 
         from sqlmodel import select
         from app.models.zone import UnknownZoneFlag
@@ -184,6 +192,16 @@ class TestDetectUnknownZones:
         ).first()
         assert flag is not None
         assert flag.seen_count == 2
+
+    def test_hold_zone_bin_not_flagged(self, session):
+        """보류존 bin(STOP* 등)은 unknown zone 경고를 생성하지 않아야 한다 (Bug 2 회귀)"""
+        # STOP00001 은 bin_id_pattern 미매칭 → classify_inventory에서 hold로 분류
+        # detect_unknown_zones는 picking/replenish만 받으므로 "ST" prefix가 나타나지 않음
+        picking_bytes = make_csv(base_row(bin_id="15RA0010001", picking="피킹가능"))
+        unknowns = self._run(session, picking_bytes=picking_bytes)
+        # 보류존 prefix("ST", "PK" 등)가 포함되지 않아야 함
+        hold_like = [u for u in unknowns if u["zone_prefix"] in ("ST", "PK", "LQ")]
+        assert hold_like == []
 
 
 class TestDetectMultiPickingBins:
@@ -231,3 +249,31 @@ class TestDetectMultiPickingBins:
         })
         multi = detect_multi_picking_bins(picking_df, session)
         assert len(multi) == 0
+
+    def test_first_upload_multi_bin_detected(self, session):
+        """
+        첫 업로드 시 동일 SKU가 2개 지번으로 나타나는 경우에도 has_multi_bin 설정 확인.
+        (Bug 1 회귀: update_picking_history → detect_multi_picking_bins 순서 보장)
+        """
+        from app.models.sku import SkuPickingHistory
+        from app.services.csv_parser import update_picking_history
+        from sqlmodel import select
+
+        picking_df = pl.DataFrame({
+            "상품코드":    ["SKU_NEW", "SKU_NEW"],
+            "센터":        ["TC", "TC"],
+            "지번":        ["15RA0010001", "15RA0010002"],
+            "피킹가능":    ["피킹가능", "피킹가능"],
+            "가용수량":    [50, 30],
+        })
+
+        # 올바른 호출 순서: update_picking_history 먼저, detect_multi_picking_bins 나중
+        update_picking_history(picking_df, session)
+        multi = detect_multi_picking_bins(picking_df, session)
+
+        assert len(multi) == 1
+        history = session.exec(
+            select(SkuPickingHistory).where(SkuPickingHistory.sku_id == "SKU_NEW")
+        ).first()
+        assert history is not None
+        assert history.has_multi_bin is True

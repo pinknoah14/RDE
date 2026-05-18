@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from typing import Optional
 from sqlmodel import Field, SQLModel
+from sqlalchemy import UniqueConstraint
 
 
 class SkuSalesSummary(SQLModel, table=True):
@@ -44,6 +45,7 @@ class SkuPickingHistory(SQLModel, table=True):
 
 class DailySalesHistory(SQLModel, table=True):
     __tablename__ = "daily_sales_history"
+    __table_args__ = (UniqueConstraint("sku_id", "center_cd", "sales_date", name="uq_daily_sales"),)
 
     history_id: Optional[int] = Field(default=None, primary_key=True)
     sku_id: str = Field(nullable=False)

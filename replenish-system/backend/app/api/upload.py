@@ -32,9 +32,9 @@ async def upload_inventory(
     picking_df = classified["picking"]
     replenish_df = classified["replenish"]
 
-    unknown_zones = detect_unknown_zones(df, session)
-    multi_bins = detect_multi_picking_bins(picking_df, session)
-    update_picking_history(picking_df, session)
+    unknown_zones = detect_unknown_zones(picking_df, replenish_df, session)
+    update_picking_history(picking_df, session)       # 레코드 먼저 생성
+    multi_bins = detect_multi_picking_bins(picking_df, session)  # 그 다음 멀티빈 감지
     new_skus = detect_new_skus(replenish_df, session)
 
     upload_record = UploadSession(
