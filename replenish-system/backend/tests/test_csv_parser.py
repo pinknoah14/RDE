@@ -45,6 +45,10 @@ def base_row(
 
 
 def seed_zone(session, prefix="RA", access_type="FORKLIFT"):
+    from sqlmodel import select
+    existing = session.exec(select(ZoneConfig).where(ZoneConfig.zone_prefix == prefix)).first()
+    if existing:
+        return
     zone = ZoneConfig(
         zone_prefix=prefix,
         zone_name=f"{prefix}존",
@@ -277,3 +281,110 @@ class TestDetectMultiPickingBins:
         ).first()
         assert history is not None
         assert history.has_multi_bin is True
+
+
+# ---------------------------------------------------------------------------
+# 샘플 CSV 파일 기반 통합 테스트
+# ---------------------------------------------------------------------------
+
+class TestSampleCsvFile:
+    def test_load_file_no_exception(self, sample_csv_path):
+        from app.services.csv_parser import load_inventory_csv
+        df = load_inventory_csv(str(sample_csv_path))
+        assert df is not None
+        assert len(df) > 0
+
+    def test_required_columns_present(self, sample_csv_path):
+        from app.services.csv_parser import load_inventory_csv
+        df = load_inventory_csv(str(sample_csv_path))
+        for col in REQUIRED_COLUMNS:
+            assert col in df.columns, f"누락 컬럼: {col}"
+
+    def test_excluded_columns_absent(self, sample_csv_path):
+        from app.services.csv_parser import load_inventory_csv
+        df = load_inventory_csv(str(sample_csv_path))
+        assert "이동중" not in df.columns
+        assert "입고중" not in df.columns
+
+    def test_row_count(self, sample_csv_path):
+        from app.services.csv_parser import load_inventory_csv
+        df = load_inventory_csv(str(sample_csv_path))
+        assert len(df) == 12
+
+    def test_classify_picking_skus(self, sample_csv_path, session):
+        from app.services.csv_parser import load_inventory_csv, classify_inventory
+        df = load_inventory_csv(str(sample_csv_path))
+        result = classify_inventory(df, session)
+
+        picking_skus = set(result["picking"]["상품코드"].to_list())
+        assert "SKU001" in picking_skus
+        assert "SKU002" in picking_skus
+        assert "SKU003" in picking_skus
+        assert "SKU005" in picking_skus
+
+    def test_classify_sku005_multi_bin(self, sample_csv_path, session):
+        from app.services.csv_parser import load_inventory_csv, classify_inventory
+        df = load_inventory_csv(str(sample_csv_path))
+        result = classify_inventory(df, session)
+
+        sku005_rows = result["picking"].filter(pl.col("상품코드") == "SKU005")
+        assert len(sku005_rows) == 2
+
+    def test_classify_replenish_fefo(self, sample_csv_path, session):
+        from app.services.csv_parser import load_inventory_csv, classify_inventory
+        df = load_inventory_csv(str(sample_csv_path))
+        result = classify_inventory(df, session)
+
+        sku001_rep = result["replenish"].filter(pl.col("상품코드") == "SKU001")
+        assert len(sku001_rep) == 2
+        days = sku001_rep["판매마감일수"].to_list()
+        assert days[0] == 20
+        assert days[1] == 45
+
+    def test_classify_expired_filtered(self, sample_csv_path, session):
+        from app.services.csv_parser import load_inventory_csv, classify_inventory
+        df = load_inventory_csv(str(sample_csv_path))
+        result = classify_inventory(df, session)
+
+        rep_skus = set(result["replenish"]["상품코드"].to_list())
+        assert "SKU004" not in rep_skus
+
+    def test_classify_hold_zones(self, sample_csv_path, session):
+        from app.services.csv_parser import load_inventory_csv, classify_inventory
+        df = load_inventory_csv(str(sample_csv_path))
+        result = classify_inventory(df, session)
+
+        hold_bins = set(result["hold"]["지번"].to_list())
+        assert "PKMOVE01" in hold_bins
+        assert "RT0001234" in hold_bins
+
+    def test_detect_unknown_zone_zz(self, sample_csv_path, session):
+        from app.services.csv_parser import load_inventory_csv, classify_inventory, detect_unknown_zones
+        df = load_inventory_csv(str(sample_csv_path))
+        result = classify_inventory(df, session)
+        unknowns = detect_unknown_zones(result["picking"], result["replenish"], session)
+
+        prefixes = {u["zone_prefix"] for u in unknowns}
+        assert "ZZ" in prefixes
+        assert "RA" not in prefixes
+        assert "RB" not in prefixes
+
+    def test_update_picking_history_confidence(self, sample_csv_path, session):
+        from app.services.csv_parser import load_inventory_csv, classify_inventory, update_picking_history
+        from app.models.sku import SkuPickingHistory
+        from sqlmodel import select
+        from datetime import date
+
+        df = load_inventory_csv(str(sample_csv_path))
+        result = classify_inventory(df, session)
+        update_picking_history(result["picking"], session)
+
+        h = session.exec(
+            select(SkuPickingHistory).where(
+                SkuPickingHistory.sku_id == "SKU001",
+                SkuPickingHistory.center_cd == "GGH1",
+            )
+        ).first()
+        assert h is not None
+        assert h.last_seen_date == date.today()
+        assert h.confidence == "NEW"
