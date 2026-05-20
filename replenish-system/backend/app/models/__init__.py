@@ -8,10 +8,14 @@ from app.models.task import (
 )
 from app.models.worker import Worker
 from app.models.sku import SkuSalesSummary, SkuPickingHistory, DailySalesHistory
-from app.models.zone import ZoneConfig, UnknownZoneFlag, PickingZoneMaster
+from app.models.zone import (
+    ZoneConfig, UnknownZoneFlag, PickingZoneMaster,
+    ScatteredAisleAnchor, FloorAccessPoint,
+)
 from app.models.config import SystemConfig
 from app.models.audit import AuditLog
 from app.models.event import Event
+from app.models.inventory import ReplenishBinSnapshot
 
 __all__ = [
     "UploadSession",
@@ -27,7 +31,10 @@ __all__ = [
     "PickingZoneMaster",
     "ZoneConfig",
     "UnknownZoneFlag",
+    "ScatteredAisleAnchor",
+    "FloorAccessPoint",
     "SystemConfig",
     "AuditLog",
     "Event",
+    "ReplenishBinSnapshot",
 ]

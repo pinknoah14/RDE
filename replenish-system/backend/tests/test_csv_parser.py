@@ -9,7 +9,9 @@ from app.services.csv_parser import (
     classify_inventory,
     detect_multi_picking_bins,
     detect_unknown_zones,
+    extract_zone_prefix,
     load_inventory_csv_from_bytes,
+    parse_bin_id,
 )
 from app.models.zone import ZoneConfig
 
@@ -388,3 +390,60 @@ class TestSampleCsvFile:
         assert h is not None
         assert h.last_seen_date == date.today()
         assert h.confidence == "NEW"
+
+
+# ---------------------------------------------------------------------------
+# v1.7: parse_bin_id / extract_zone_prefix 단위 테스트
+# ---------------------------------------------------------------------------
+
+class TestParseBinId:
+    def test_standard_bin(self):
+        result = parse_bin_id("15RA0101001")
+        assert result == {"temp": "15", "zone": "RA", "aisle": 1, "bay": 1, "level": 1}
+
+    def test_pw_zone(self):
+        result = parse_bin_id("15PW0301001")
+        assert result is not None
+        assert result["zone"] == "PW"
+        assert result["aisle"] == 3
+        assert result["bay"] == 1
+
+    def test_large_values(self):
+        # 15 RA 14 02 201
+        result = parse_bin_id("15RA1402201")
+        assert result == {"temp": "15", "zone": "RA", "aisle": 14, "bay": 2, "level": 201}
+
+    def test_invalid_hold_bin(self):
+        assert parse_bin_id("PKMOVE01")   is None
+        assert parse_bin_id("STOP00001")  is None
+        assert parse_bin_id("RT0001234")  is None
+
+    def test_empty_and_none(self):
+        assert parse_bin_id("")   is None
+        assert parse_bin_id(None) is None  # type: ignore[arg-type]
+
+    def test_short_string(self):
+        assert parse_bin_id("15RA") is None
+
+
+class TestExtractZonePrefix:
+    def test_ra_zone(self):
+        assert extract_zone_prefix("15RA1402201") == "RA"
+
+    def test_rb_zone(self):
+        assert extract_zone_prefix("15RB0501101") == "RB"
+
+    def test_pw_returns_two_chars(self):
+        # v1.7: PW03 아니라 PW 2자리만 반환
+        assert extract_zone_prefix("15PW0301001") == "PW"
+
+    def test_sm_zone(self):
+        assert extract_zone_prefix("15SM0201501") == "SM"
+
+    def test_hold_bin_unknown(self):
+        assert extract_zone_prefix("PKMOVE01")  == "UNKNOWN"
+        assert extract_zone_prefix("RT0001234") == "UNKNOWN"
+
+    def test_empty_unknown(self):
+        assert extract_zone_prefix("") == "UNKNOWN"
+        assert extract_zone_prefix("15") == "UNKNOWN"

@@ -55,6 +55,16 @@ SYSTEM_CONFIG_SEED = [
     ("trend_cap_mult",           "1.60",                   "REAL",    "ALGORITHM", "급등 상한 배수",               None),
     ("trend_coef_max",           "2.0",                    "REAL",    "ALGORITHM", "트렌드 계수 상한",             None),
     ("trend_coef_min",           "0.5",                    "REAL",    "ALGORITHM", "트렌드 계수 하한",             None),
+    # ALGORITHM (v1.7 물리 좌표)
+    ("floor_change_penalty",              "60",  "INTEGER", "ALGORITHM", "층 이동 패널티 (수평거리 환산 m)",    None),
+    ("proximity_score_threshold_near",    "10",  "INTEGER", "ALGORITHM", "인접 판정 — 근접 기준 (m)",           None),
+    ("proximity_score_threshold_mid",     "30",  "INTEGER", "ALGORITHM", "인접 판정 — 중간 기준 (m)",           None),
+    ("proximity_score_threshold_far",     "70",  "INTEGER", "ALGORITHM", "인접 판정 — 원거리 기준 (m)",         None),
+    ("expiry_critical_days",              "7",   "INTEGER", "ALGORITHM", "유통기한 위급 기준일",                 None),
+    ("weight_expiry_critical",            "20",  "INTEGER", "ALGORITHM", "유통기한 위급 가중치",                 None),
+    ("weight_replenishing_now",           "-5",  "INTEGER", "ALGORITHM", "이미 보충 중 패널티",                  None),
+    ("max_replen_bins",                   "3",   "INTEGER", "ALGORITHM", "보충지번 최대 개수",                   None),
+    ("target_days_default",               "1.5", "REAL",    "ALGORITHM", "기본 목표 보유 일수",                  None),
     # PICKING
     ("confidence_high_days",     "3",                      "INTEGER", "PICKING",   "HIGH 신뢰도 기준일",           None),
     ("confidence_medium_days",   "14",                     "INTEGER", "PICKING",   "MEDIUM 신뢰도 기준일",         None),

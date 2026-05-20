@@ -71,21 +71,37 @@ def load_inventory_csv_from_bytes(content: bytes) -> pl.DataFrame:
     )
 
 
-def get_special_zones(session: Session) -> set[str]:
-    zones = session.exec(
-        select(ZoneConfig).where(ZoneConfig.is_special_zone == True)  # noqa: E712
-    ).all()
-    return {z.zone_prefix[:2] for z in zones}
+def parse_bin_id(bin_id: str) -> dict | None:
+    """
+    지번 문자열을 구조 딕셔너리로 파싱.
+    표준 패턴: ^15[A-Z]{2}\\d{7}$
+    비표준(보류지번)은 None 반환.
+    """
+    if not isinstance(bin_id, str):
+        return None
+    if not re.match(r'^15[A-Z]{2}\d{7}$', bin_id.strip()):
+        return None
+    return {
+        "temp":  bin_id[0:2],
+        "zone":  bin_id[2:4],
+        "aisle": int(bin_id[4:6]),
+        "bay":   int(bin_id[6:8]),
+        "level": int(bin_id[8:11]),
+    }
 
 
-def extract_zone_prefix(bin_id: str, special_zones: set[str]) -> str:
+def extract_zone_prefix(bin_id: str) -> str:
+    """
+    지번에서 존 코드 2자리 추출.
+    지번 구조: [온도(2)][존(2)][통로(2)][베이(2)][단(3)]
+    비표준 지번(보류지번 등)은 'UNKNOWN' 반환.
+    """
     if not bin_id or len(bin_id) < 4:
         return "UNKNOWN"
-    loc = bin_id[2:] if bin_id[:2].isdigit() else bin_id
-    z = loc[:2].upper()
-    if z in special_zones and len(loc) >= 4:
-        return loc[:4].upper()
-    return z
+    parsed = parse_bin_id(bin_id)
+    if parsed:
+        return parsed["zone"]
+    return "UNKNOWN"
 
 
 def classify_inventory(df: pl.DataFrame, session: Session) -> dict[str, pl.DataFrame]:
@@ -140,7 +156,6 @@ def detect_unknown_zones(
     zone_config 미등록 존 감지 → unknown_zone_flags UPSERT.
     보류존(hold) 행은 대상 제외 — bin_id_pattern 미매칭 bin의 가짜 경고 방지.
     """
-    special_zones = get_special_zones(session)
     known_prefixes = {
         z.zone_prefix
         for z in session.exec(select(ZoneConfig)).all()
@@ -152,7 +167,7 @@ def detect_unknown_zones(
     unknown: dict[str, str] = {}  # zone_prefix → sample bin_id
     for row in active_df.iter_rows(named=True):
         bin_id = row.get("지번") or ""
-        prefix = extract_zone_prefix(bin_id, special_zones)
+        prefix = extract_zone_prefix(bin_id)
         if prefix != "UNKNOWN" and prefix not in known_prefixes:
             unknown.setdefault(prefix, bin_id)
 
@@ -213,7 +228,6 @@ def update_picking_history(picking_df: pl.DataFrame, session: Session) -> None:
     low_days = int(get_config("confidence_low_days", session))
 
     today = date.today()
-    special_zones = get_special_zones(session)  # 루프 밖에서 1회만 조회
 
     for row in picking_df.iter_rows(named=True):
         sku_id = row["상품코드"]
@@ -249,7 +263,7 @@ def update_picking_history(picking_df: pl.DataFrame, session: Session) -> None:
             existing.confidence = confidence
             existing.updated_at = datetime.utcnow()
         else:
-            zone_prefix = extract_zone_prefix(bin_id or "", special_zones)
+            zone_prefix = extract_zone_prefix(bin_id or "")
             session.add(SkuPickingHistory(
                 sku_id=sku_id,
                 center_cd=center_cd,

@@ -44,6 +44,9 @@ class TestInitDb:
             "zone_config",
             "unknown_zone_flags",
             "picking_zone_master",
+            "scattered_aisle_anchor",
+            "floor_access_points",
+            "replenish_bin_snapshot",
             "system_config",
             "audit_log",
             "events",
@@ -55,13 +58,13 @@ class TestInitDb:
             actual = {row[0] for row in result}
         assert expected == actual, f"missing: {expected - actual}, extra: {actual - expected}"
 
-    def test_table_count_is_16(self, mem_engine):
+    def test_table_count_is_19(self, mem_engine):
         with mem_engine.connect() as conn:
             result = conn.execute(text(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
             ))
             count = result.scalar()
-        assert count == 16
+        assert count == 19
 
 
 class TestSeedSystemConfig:
