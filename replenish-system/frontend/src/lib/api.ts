@@ -44,7 +44,10 @@ export const api = {
     request<{ wave_id: number; tasks_created: number }>(
       `/waves/${id}/confirm?confirmed_by=${encodeURIComponent(confirmedBy)}`, { method: "POST" }
     ),
-  sendWave: (id: number) => request<unknown>(`/waves/${id}/send`, { method: "POST" }),
+  sendWave: (id: number, channel?: string) => {
+    const q = channel ? `?channel=${encodeURIComponent(channel)}` : "";
+    return request<unknown>(`/waves/${id}/send${q}`, { method: "POST" });
+  },
   deleteWaveMessages: (id: number) => request<unknown>(`/waves/${id}/messages`, { method: "DELETE" }),
 
   // 추천 후보
@@ -53,9 +56,13 @@ export const api = {
     request<Candidate>(`/waves/${waveId}/candidates/${cid}/approve`, { method: "POST" }),
   rejectCandidate: (waveId: number, cid: number, reason = "") =>
     request<Candidate>(`/waves/${waveId}/candidates/${cid}/reject?reason=${encodeURIComponent(reason)}`, { method: "POST" }),
-  modifyCandidate: (waveId: number, cid: number, qty: number) =>
+  modifyCandidate: (waveId: number, cid: number, qty?: number, list_section?: "MAIN" | "SUB") =>
     request<Candidate>(`/waves/${waveId}/candidates/${cid}`, {
-      method: "PATCH", body: JSON.stringify({ modified_qty: qty }),
+      method: "PATCH",
+      body: JSON.stringify({
+        ...(qty !== undefined && { modified_qty: qty }),
+        ...(list_section !== undefined && { list_section }),
+      }),
     }),
 
   // 태스크

@@ -18,6 +18,8 @@ export interface Candidate {
   risk_level: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
   picking_bin: string;
   picking_confidence: string;
+  replenish_bin?: string;
+  proximity_score?: number;
   recommended_qty: number;
   modified_qty?: number;
   today_sales: number;

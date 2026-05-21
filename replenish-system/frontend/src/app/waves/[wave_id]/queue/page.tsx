@@ -6,24 +6,34 @@ import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { statusLabel } from "@/lib/utils";
-import type { QueueItem } from "@/types";
+import type { QueueItem, ZoneConfig } from "@/types";
 
 export default function QueuePage({ params }: { params: Promise<{ wave_id: string }> }) {
   const { wave_id } = use(params);
   const waveId = parseInt(wave_id);
 
   const [tasks, setTasks] = useState<QueueItem[]>([]);
+  const [zones, setZones] = useState<ZoneConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState("");
+  const [deleted, setDeleted] = useState(false);
 
   const load = () => api.getWaveTasks(waveId).then(setTasks).catch(console.error).finally(() => setLoading(false));
-  useEffect(() => { load(); }, [waveId]);
 
-  const handleSend = async () => {
+  useEffect(() => {
+    Promise.all([
+      api.getWaveTasks(waveId),
+      api.getZones().catch(() => [] as ZoneConfig[]),
+    ]).then(([t, z]) => { setTasks(t); setZones(z); }).finally(() => setLoading(false));
+  }, [waveId]);
+
+  const handleSend = async (channel?: string) => {
     setSending(true);
     try {
-      await api.sendWave(waveId);
+      await api.sendWave(waveId, channel);
       toast({ title: "Slack 전송 완료" });
+      setDeleted(false);
       load();
     } catch (e) {
       toast({ title: "전송 실패", description: (e as Error).message, variant: "destructive" });
@@ -35,11 +45,17 @@ export default function QueuePage({ params }: { params: Promise<{ wave_id: strin
     try {
       await api.deleteWaveMessages(waveId);
       toast({ title: "메시지 삭제 완료" });
+      setDeleted(true);
       load();
     } catch (e) {
       toast({ title: "삭제 실패", description: (e as Error).message, variant: "destructive" });
     }
   };
+
+  const hasSent    = tasks.some((t) => t.task_status === "SENT" || t.task_status === "DONE");
+  const hasWaiting = tasks.some((t) => t.task_status === "READY" || t.task_status === "QUEUED");
+
+  const channels = Array.from(new Set(zones.map((z) => z.slack_channel).filter(Boolean)));
 
   if (loading) {
     return <div className="flex h-40 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" /></div>;
@@ -49,11 +65,34 @@ export default function QueuePage({ params }: { params: Promise<{ wave_id: strin
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-bold">대기열 / Slack 전송</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleDelete}><Trash2 size={14} />메시지 삭제</Button>
-          <Button size="sm" onClick={handleSend} disabled={sending}>
-            <Send size={14} />{sending ? "전송 중..." : "Slack 전송"}
-          </Button>
+        <div className="flex items-center gap-2">
+          {deleted && (
+            <>
+              <select
+                value={selectedChannel}
+                onChange={(e) => setSelectedChannel(e.target.value)}
+                className="rounded border px-2 py-1.5 text-sm"
+              >
+                <option value="">채널 선택 (기본)</option>
+                {channels.map((ch) => (
+                  <option key={ch} value={ch}>{ch}</option>
+                ))}
+              </select>
+              <Button size="sm" onClick={() => handleSend(selectedChannel || undefined)} disabled={sending}>
+                <RefreshCw size={14} />{sending ? "재전송 중..." : "재전송"}
+              </Button>
+            </>
+          )}
+          {hasSent && !deleted && (
+            <Button variant="outline" size="sm" onClick={handleDelete}>
+              <Trash2 size={14} />메시지 삭제
+            </Button>
+          )}
+          {(hasWaiting || !hasSent) && !deleted && (
+            <Button size="sm" onClick={() => handleSend()} disabled={sending}>
+              <Send size={14} />{sending ? "전송 중..." : "Slack 전송"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -73,7 +112,7 @@ export default function QueuePage({ params }: { params: Promise<{ wave_id: strin
             </thead>
             <tbody className="divide-y">
               {tasks.map((t, i) => (
-                <tr key={i} className="hover:bg-gray-50">
+                <tr key={t.task_id ?? i} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="font-medium">{t.sku_name}</div>
                     <div className="text-xs text-muted-foreground">{t.sku_id}</div>
@@ -82,16 +121,29 @@ export default function QueuePage({ params }: { params: Promise<{ wave_id: strin
                   <td className="px-4 py-3">{t.total_qty}</td>
                   <td className="px-4 py-3">
                     <Badge variant={
-                      t.task_status === "DONE" ? "default" :
+                      t.task_status === "DONE"    ? "default" :
                       t.task_status === "BLOCKED" ? "destructive" :
-                      t.task_status === "SENT" ? "secondary" : "outline"
+                      t.task_status === "SENT"    ? "secondary" : "outline"
                     }>
                       {statusLabel(t.task_status)}
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
+                    {(t.task_status === "READY" || t.task_status === "QUEUED") && (
+                      <Button size="sm" variant="outline" className="h-7 gap-1 text-xs"
+                        onClick={() => handleSend()} disabled={sending}>
+                        <Send size={10} />전송
+                      </Button>
+                    )}
+                    {t.task_status === "SENT" && (
+                      <Button size="sm" variant="outline" className="h-7 gap-1 text-xs"
+                        onClick={handleDelete}>
+                        <Trash2 size={10} />삭제
+                      </Button>
+                    )}
                     {t.task_status === "BLOCKED" && (
-                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+                      <Button size="sm" variant="outline" className="h-7 gap-1 text-xs"
+                        onClick={() => handleSend()}>
                         <RefreshCw size={10} />재시도
                       </Button>
                     )}

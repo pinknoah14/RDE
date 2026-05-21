@@ -10,7 +10,9 @@ import type { SystemConfig } from "@/types";
 const GROUPS = [
   { key: "WAVE",      label: "웨이브" },
   { key: "ALGORITHM", label: "알고리즘" },
+  { key: "PICKING",   label: "피킹" },
   { key: "SLACK",     label: "Slack" },
+  { key: "WORKER",    label: "작업자" },
 ];
 
 const ALGO_V17_KEYS = [
