@@ -7,3 +7,5 @@ __pycache__/
 data/*.db
 data/*.db-wal
 data/*.db-shm
+tests/fixtures/*.csv
+tests/fixtures/*.json

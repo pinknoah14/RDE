@@ -1,0 +1,77 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: replenish-system/backend/requirements.txt
+
+      - name: 의존성 설치
+        run: |
+          cd replenish-system/backend
+          pip install -r requirements.txt
+
+      - name: data 폴더 생성
+        run: mkdir -p replenish-system/backend/data
+
+      - name: 샘플 데이터 생성 (CI 축소: 1,000 SKU)
+        run: |
+          cd replenish-system/backend
+          python tests/fixtures/generate_fixtures.py 1000
+        env:
+          PYTHONPATH: .
+
+      - name: 통합 테스트
+        run: |
+          cd replenish-system/backend
+          pytest tests/test_integration.py \
+                 tests/test_wave_integration.py \
+                 tests/test_scenarios.py \
+                 tests/test_slack_mock.py \
+                 -v --tb=short -p no:warnings
+        env:
+          PYTHONPATH: .
+
+      - name: 성능 테스트 (CI 기준 완화)
+        run: |
+          cd replenish-system/backend
+          pytest tests/test_performance.py -v --tb=short -p no:warnings \
+            -k "not test_sales_upsert_speed"
+        env:
+          PYTHONPATH: .
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: replenish-system/frontend/package-lock.json
+
+      - name: 의존성 설치
+        run: cd replenish-system/frontend && npm ci
+
+      - name: 타입 검사
+        run: cd replenish-system/frontend && npx tsc --noEmit
+
+      - name: 빌드
+        run: cd replenish-system/frontend && npm run build
