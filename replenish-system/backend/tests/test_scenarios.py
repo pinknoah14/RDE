@@ -261,3 +261,66 @@ class TestOperationScenarios:
         assert "record_count" in data
         assert "picking_count" in data
         assert data["record_count"] > 0
+
+    def test_scenario_outbound_upload_api(self, api_client):
+        """
+        시나리오: 출고현황 CSV 업로드 API (long format)
+        """
+        sales_path = FIXTURES / "pivot_sample.csv"  # parse_outbound_csv 포맷
+        if not sales_path.exists():
+            pytest.skip("pivot_sample.csv 없음")
+
+        with open(sales_path, "rb") as f:
+            res = api_client.post(
+                "/api/v1/upload/outbound",
+                files={"file": ("outbound.csv", f, "text/csv")},
+                data={"center_cd": "GGH1"},
+            )
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert "upload_id" in data
+        assert data["record_count"] > 0
+        assert data["sku_count"] >= 0
+
+    def test_scenario_pivot_upload_api(self, api_client):
+        """
+        시나리오: 피벗테이블 CSV 업로드 API (wide format)
+        """
+        csv = (
+            "상품코드,센터,2026-05-20,2026-05-21\n"
+            "SKU_PIVOT_UPLOAD_1,GGH1,5,3\n"
+            "SKU_PIVOT_UPLOAD_2,GGH1,0,7\n"
+        ).encode("utf-8")
+
+        res = api_client.post(
+            "/api/v1/upload/pivot-sales",
+            files={"file": ("pivot.csv", csv, "text/csv")},
+            data={"center_cd": "GGH1"},
+        )
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert "upload_id" in data
+        assert data["record_count"] > 0
+
+    def test_scenario_upload_sessions_list(self, api_client):
+        """
+        시나리오: 업로드 이력 조회 — /upload/sessions 경로
+        """
+        res = api_client.get("/api/v1/upload/sessions")
+        assert res.status_code == 200
+        assert isinstance(res.json(), list)
+
+    def test_scenario_dashboard_summary(self, api_client):
+        """
+        시나리오: 대시보드 통합 요약 — /dashboard 기본 엔드포인트
+        """
+        res = api_client.get("/api/v1/dashboard")
+        assert res.status_code == 200, res.text
+        data = res.json()
+        for key in (
+            "risk_counts", "critical_skus", "active_workers", "total_workers",
+            "new_skus", "stale_bins", "unknown_zones", "unclaimed_tasks",
+            "multi_bin_skus",
+        ):
+            assert key in data, f"대시보드 응답에 {key} 누락"
+        assert set(data["risk_counts"].keys()) == {"CRITICAL", "HIGH", "MEDIUM", "LOW"}

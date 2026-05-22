@@ -83,10 +83,15 @@ function UploadZone({ label, accept = ".csv", onUpload }: UploadZoneProps) {
               <CheckCircle size={14} />
               업로드 완료
             </div>
-            {result.rows !== undefined && (
+            {result.record_count !== undefined && (
               <p className="text-green-700">
-                총 {result.rows}행 — 피킹존 {result.picking ?? 0} / 보충존 {result.replenish ?? 0} / 제외 {result.excluded ?? 0}
+                총 {result.record_count}행
+                {result.picking_count !== undefined &&
+                  ` — 피킹존 ${result.picking_count} / 보충존 ${result.replenish_count ?? 0} / 제외 ${result.hold_count ?? 0}`}
               </p>
+            )}
+            {result.sku_count !== undefined && (
+              <p className="text-green-700">SKU 판매요약 갱신: {result.sku_count}개</p>
             )}
             {result.unknown_zones && result.unknown_zones.length > 0 && (
               <p className="flex items-center gap-1 text-amber-600">

@@ -135,11 +135,13 @@ export interface WaveCreateRequest {
 }
 
 export interface UploadResult {
+  upload_id?: number;
   message?: string;
-  rows?: number;
-  picking?: number;
-  replenish?: number;
-  excluded?: number;
+  record_count?: number;
+  picking_count?: number;
+  replenish_count?: number;
+  hold_count?: number;
+  sku_count?: number;
   unknown_zones?: string[];
   multi_bin_skus?: number;
 }
