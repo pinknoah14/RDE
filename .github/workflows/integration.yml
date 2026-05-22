@@ -28,7 +28,7 @@ jobs:
       - name: data 폴더 생성
         run: mkdir -p replenish-system/backend/data
 
-      - name: 샘플 데이터 생성 (CI 축소: 1,000 SKU)
+      - name: "샘플 데이터 생성 (CI 축소: 1,000 SKU)"
         run: |
           cd replenish-system/backend
           python tests/fixtures/generate_fixtures.py 1000
