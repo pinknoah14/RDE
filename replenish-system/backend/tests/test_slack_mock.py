@@ -160,7 +160,7 @@ class TestSlackMessages:
         if wave_id is None:
             pytest.skip("후보 없음")
 
-        res = client.post(f"/api/v1/waves/{wave_id}/send")
+        res = client.post(f"/api/v1/queue/{wave_id}/send")
         assert res.status_code == 200, res.text
         data = res.json()
         # bot_token 없으므로 queued 리스트에 채널들이 들어가야 함
@@ -188,7 +188,7 @@ class TestSlackMessages:
                 s.commit()
             invalidate_cache()
 
-        res = client.post(f"/api/v1/waves/{wave_id}/send")
+        res = client.post(f"/api/v1/queue/{wave_id}/send")
         assert res.status_code == 200, res.text
 
         # 토큰 원복
@@ -214,7 +214,7 @@ class TestSlackMessages:
             pytest.skip("후보 없음")
 
         # 삭제 엔드포인트 — SENT 메시지 없어도 200 반환해야 함
-        res = client.delete(f"/api/v1/waves/{wave_id}/messages")
+        res = client.delete(f"/api/v1/queue/{wave_id}/messages")
         assert res.status_code == 200, res.text
         data = res.json()
         assert "deleted" in data
@@ -225,7 +225,7 @@ class TestSlackMessages:
         if wave_id is None:
             pytest.skip("후보 없음")
 
-        r1 = client.post(f"/api/v1/waves/{wave_id}/send")
-        r2 = client.post(f"/api/v1/waves/{wave_id}/send")
+        r1 = client.post(f"/api/v1/queue/{wave_id}/send")
+        r2 = client.post(f"/api/v1/queue/{wave_id}/send")
         assert r1.status_code == 200
         assert r2.status_code == 200

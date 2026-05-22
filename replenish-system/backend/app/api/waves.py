@@ -6,12 +6,11 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.dependencies import get_session
-from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation
+from app.models.task import ReplenishCandidate, ReplenishConfirmedTask
 from app.models.wave import Wave
 from app.models.zone import ZoneConfig
 from app.services.algorithm import AlgorithmResult, run_algorithm
-from app.services.slack_service import delete_wave_messages, send_wave_messages
-from app.services.state_machine import InvalidTransitionError, transition_candidate, transition_task
+from app.services.state_machine import InvalidTransitionError, transition_candidate
 
 router = APIRouter()
 
@@ -212,55 +211,3 @@ def confirm_wave(
     return {"wave_id": wave_id, "tasks_created": tasks_created}
 
 
-@router.post("/{wave_id}/send")
-def send_wave(wave_id: int, session: Session = Depends(get_session)) -> Any:
-    wave = session.get(Wave, wave_id)
-    if not wave:
-        raise HTTPException(status_code=404, detail="웨이브 없음")
-    result = send_wave_messages(wave_id, session)
-    wave.wave_status = "SENT"
-    wave.sent_at = datetime.utcnow()
-    session.commit()
-    return result
-
-
-@router.delete("/{wave_id}/messages")
-def delete_messages(wave_id: int, session: Session = Depends(get_session)) -> Any:
-    return delete_wave_messages(wave_id, session)
-
-
-@router.post("/{wave_id}/resend")
-def resend_wave(
-    wave_id: int,
-    target_channel_id: str | None = Query(default=None),
-    session: Session = Depends(get_session),
-) -> Any:
-    return send_wave_messages(wave_id, session)
-
-
-@router.get("/{wave_id}/tasks")
-def list_tasks(wave_id: int, session: Session = Depends(get_session)) -> Any:
-    return session.exec(
-        select(ReplenishConfirmedTask).where(ReplenishConfirmedTask.wave_id == wave_id)
-    ).all()
-
-
-@router.post("/{wave_id}/tasks/{task_id}/transition")
-def transition_task_endpoint(
-    wave_id: int,
-    task_id: int,
-    new_status: str = Query(...),
-    actor: str = Query(default="관리자"),
-    block_reason: str | None = Query(default=None),
-    shortage_qty: int | None = Query(default=None),
-    cancel_reason: str | None = Query(default=None),
-    session: Session = Depends(get_session),
-) -> Any:
-    try:
-        return transition_task(
-            task_id, new_status, actor=actor,
-            block_reason=block_reason, shortage_qty=shortage_qty,
-            cancel_reason=cancel_reason, session=session,
-        )
-    except InvalidTransitionError as e:
-        raise HTTPException(status_code=400, detail=str(e))

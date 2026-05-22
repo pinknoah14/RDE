@@ -46,9 +46,9 @@ export const api = {
     ),
   sendWave: (id: number, channel?: string) => {
     const q = channel ? `?channel=${encodeURIComponent(channel)}` : "";
-    return request<unknown>(`/waves/${id}/send${q}`, { method: "POST" });
+    return request<unknown>(`/queue/${id}/send${q}`, { method: "POST" });
   },
-  deleteWaveMessages: (id: number) => request<unknown>(`/waves/${id}/messages`, { method: "DELETE" }),
+  deleteWaveMessages: (id: number) => request<unknown>(`/queue/${id}/messages`, { method: "DELETE" }),
 
   // 추천 후보
   getCandidates: (waveId: number) => request<Candidate[]>(`/waves/${waveId}/candidates`),
@@ -66,10 +66,10 @@ export const api = {
     }),
 
   // 태스크
-  getWaveTasks: (waveId: number) => request<QueueItem[]>(`/waves/${waveId}/tasks`),
-  transitionTask: (waveId: number, taskId: number, status: string, extra?: Record<string, string>) => {
+  getWaveTasks: (waveId: number) => request<QueueItem[]>(`/tasks?wave_id=${waveId}`),
+  transitionTask: (_waveId: number, taskId: number, status: string, extra?: Record<string, string>) => {
     const params = new URLSearchParams({ new_status: status, ...extra });
-    return request<QueueItem>(`/waves/${waveId}/tasks/${taskId}/transition?${params}`, { method: "POST" });
+    return request<QueueItem>(`/tasks/${taskId}/transition?${params}`, { method: "POST" });
   },
 
   // 존 설정

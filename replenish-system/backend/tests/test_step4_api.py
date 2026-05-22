@@ -278,7 +278,7 @@ class TestWaveFullFlow:
         client.post(f"/api/v1/waves/{wave_id}/candidates/{cid}/approve")
         client.post(f"/api/v1/waves/{wave_id}/confirm")
 
-        res = client.get(f"/api/v1/waves/{wave_id}/tasks")
+        res = client.get(f"/api/v1/tasks?wave_id={wave_id}")
         assert res.status_code == 200
         assert len(res.json()) >= 1
 
@@ -303,18 +303,16 @@ class TestBlockedTaskReincluded:
         client.post(f"/api/v1/waves/{wave1_id}/candidates/{cid}/approve")
         client.post(f"/api/v1/waves/{wave1_id}/confirm")
 
-        tasks = client.get(f"/api/v1/waves/{wave1_id}/tasks").json()
+        tasks = client.get(f"/api/v1/tasks?wave_id={wave1_id}").json()
         assert tasks, "태스크 생성 필요"
         task_id = tasks[0]["task_id"]
         sku_id  = tasks[0]["sku_id"]
 
         # READY → QUEUED → SENT → BLOCKED (state machine 순서)
-        client.post(f"/api/v1/waves/{wave1_id}/tasks/{task_id}/transition",
-                    params={"new_status": "QUEUED"})
-        client.post(f"/api/v1/waves/{wave1_id}/tasks/{task_id}/transition",
-                    params={"new_status": "SENT"})
+        client.post(f"/api/v1/tasks/{task_id}/transition", params={"new_status": "QUEUED"})
+        client.post(f"/api/v1/tasks/{task_id}/transition", params={"new_status": "SENT"})
         res = client.post(
-            f"/api/v1/waves/{wave1_id}/tasks/{task_id}/transition",
+            f"/api/v1/tasks/{task_id}/transition",
             params={"new_status": "BLOCKED", "block_reason": "통로 막힘"},
         )
         assert res.status_code == 200

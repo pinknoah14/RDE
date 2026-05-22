@@ -147,7 +147,7 @@ class TestWaveLifecycle:
         assert res.json()["wave_status"] == "CONFIRMED"
 
         # 6. 태스크 목록 확인
-        res = client.get(f"/api/v1/waves/{wave_id}/tasks")
+        res = client.get(f"/api/v1/tasks?wave_id={wave_id}")
         assert res.status_code == 200
         tasks = res.json()
         assert len(tasks) > 0
@@ -206,12 +206,12 @@ class TestWaveLifecycle:
             client.post(f"/api/v1/waves/{wave_id}/candidates/{c['candidate_id']}/approve")
         client.post(f"/api/v1/waves/{wave_id}/confirm")
 
-        tasks = client.get(f"/api/v1/waves/{wave_id}/tasks").json()
+        tasks = client.get(f"/api/v1/tasks?wave_id={wave_id}").json()
         if not tasks:
             pytest.skip("태스크 없음")
 
         task_id = tasks[0]["task_id"]
-        base = f"/api/v1/waves/{wave_id}/tasks/{task_id}/transition"
+        base = f"/api/v1/tasks/{task_id}/transition"
 
         # READY → QUEUED
         r = client.post(base, params={"new_status": "QUEUED"})
@@ -242,10 +242,10 @@ class TestWaveLifecycle:
         client.post(f"/api/v1/waves/{wave1_id}/candidates/{cid}/approve")
         client.post(f"/api/v1/waves/{wave1_id}/confirm")
 
-        tasks = client.get(f"/api/v1/waves/{wave1_id}/tasks").json()
+        tasks = client.get(f"/api/v1/tasks?wave_id={wave1_id}").json()
         if tasks:
             task_id = tasks[0]["task_id"]
-            base = f"/api/v1/waves/{wave1_id}/tasks/{task_id}/transition"
+            base = f"/api/v1/tasks/{task_id}/transition"
             client.post(base, params={"new_status": "QUEUED"})
             client.post(base, params={"new_status": "SENT"})
             client.post(base, params={"new_status": "BLOCKED", "block_reason": "통합테스트 재포함 검증"})

@@ -1,4 +1,37 @@
-# Phase 3에서 구현 (Slack 전송/삭제/재전송)
-from fastapi import APIRouter
+from datetime import datetime
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlmodel import Session
+
+from app.core.dependencies import get_session
+from app.models.wave import Wave
+from app.services.slack_service import delete_wave_messages, send_wave_messages
 
 router = APIRouter()
+
+
+@router.post("/{wave_id}/send")
+def send_wave(wave_id: int, session: Session = Depends(get_session)) -> Any:
+    wave = session.get(Wave, wave_id)
+    if not wave:
+        raise HTTPException(status_code=404, detail="웨이브 없음")
+    result = send_wave_messages(wave_id, session)
+    wave.wave_status = "SENT"
+    wave.sent_at = datetime.utcnow()
+    session.commit()
+    return result
+
+
+@router.delete("/{wave_id}/messages")
+def delete_messages(wave_id: int, session: Session = Depends(get_session)) -> Any:
+    return delete_wave_messages(wave_id, session)
+
+
+@router.post("/{wave_id}/resend")
+def resend_wave(
+    wave_id: int,
+    target_channel_id: str | None = Query(default=None),
+    session: Session = Depends(get_session),
+) -> Any:
+    return send_wave_messages(wave_id, session)
