@@ -268,3 +268,40 @@ class TestWaveLifecycle:
         candidates = client.get(f"/api/v1/waves/{wave_id}/candidates").json()
         below = [c for c in candidates if c["risk_score"] < min_score]
         assert len(below) == 0, f"min_risk_score {min_score} 미달 후보 {len(below)}건 포함"
+
+    def test_confirm_creates_replenish_locations(self, client, full_session):
+        """confirm 후 ReplenishTaskLocation이 Task당 최소 1개 생성됨"""
+        from sqlmodel import select
+        from app.models.task import ReplenishConfirmedTask, ReplenishTaskLocation
+
+        res = client.post("/api/v1/waves", json={"max_candidates": 10})
+        assert res.status_code == 200
+        wave_id = res.json()["wave_id"]
+
+        candidates = client.get(f"/api/v1/waves/{wave_id}/candidates").json()
+        if not candidates:
+            pytest.skip("후보 없음")
+
+        for c in candidates:
+            client.post(f"/api/v1/waves/{wave_id}/candidates/{c['candidate_id']}/approve")
+
+        res = client.post(f"/api/v1/waves/{wave_id}/confirm")
+        assert res.status_code == 200
+        tasks_created = res.json()["tasks_created"]
+        assert tasks_created > 0
+
+        tasks = full_session.exec(
+            select(ReplenishConfirmedTask).where(ReplenishConfirmedTask.wave_id == wave_id)
+        ).all()
+        assert len(tasks) == tasks_created
+
+        task_ids = [t.task_id for t in tasks]
+        locations = full_session.exec(
+            select(ReplenishTaskLocation).where(ReplenishTaskLocation.task_id.in_(task_ids))
+        ).all()
+        assert len(locations) >= len(tasks), \
+            f"Location {len(locations)}개 < Task {len(tasks)}개"
+
+        loc_task_ids = {loc.task_id for loc in locations}
+        missing = [t.task_id for t in tasks if t.task_id not in loc_task_ids]
+        assert not missing, f"Location 없는 Task: {missing}"

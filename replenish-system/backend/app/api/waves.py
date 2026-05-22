@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from typing import Any
 
@@ -6,10 +7,11 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.dependencies import get_session
-from app.models.task import ReplenishCandidate, ReplenishConfirmedTask
+from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation
 from app.models.wave import Wave
 from app.models.zone import ZoneConfig
 from app.services.algorithm import AlgorithmResult, run_algorithm
+from app.services.csv_parser import extract_zone_prefix
 from app.services.state_machine import InvalidTransitionError, transition_candidate
 
 router = APIRouter()
@@ -179,12 +181,12 @@ def confirm_wave(
     if not candidates:
         raise HTTPException(status_code=400, detail="승인된 후보 없음")
 
+    zone_cfg = {z.zone_prefix: z for z in session.exec(select(ZoneConfig)).all()}
+
     tasks_created = 0
     for c in candidates:
         qty = c.modified_qty if c.modified_qty else c.recommended_qty
-        zc = session.exec(
-            select(ZoneConfig).where(ZoneConfig.zone_prefix == c.zone)
-        ).first()
+        zc = zone_cfg.get(c.zone)
         worker_type = zc.access_type if zc else "FORKLIFT"
 
         task = ReplenishConfirmedTask(
@@ -203,6 +205,25 @@ def confirm_wave(
             task_status="READY",
         )
         session.add(task)
+        session.flush()  # task_id 확보
+
+        bins = json.loads(c.matched_bins_json or "[]")
+        for seq, b in enumerate(bins, 1):
+            rep_zone_pfx = extract_zone_prefix(b["replenish_bin"]) or None
+            rep_zc = zone_cfg.get(rep_zone_pfx) if rep_zone_pfx else None
+            session.add(ReplenishTaskLocation(
+                task_id=task.task_id,
+                seq=seq,
+                replenish_bin=b["replenish_bin"],
+                replenish_zone=rep_zc.zone_name if rep_zc else None,
+                replenish_zone_prefix=rep_zone_pfx,
+                allocated_qty=b["allocated_qty"],
+                sales_deadline_days=b.get("deadline_days"),
+                receipt_date=b.get("receipt_date"),
+                proximity_score=b.get("proximity_score"),
+                location_status="PENDING",
+            ))
+
         tasks_created += 1
 
     wave.wave_status = "CONFIRMED"

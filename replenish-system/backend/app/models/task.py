@@ -23,6 +23,7 @@ class ReplenishCandidate(SQLModel, table=True):
     today_sales: int = Field(default=0)
     recommended_qty: int = Field(nullable=False)
     reason_flags: Optional[str] = None              # JSON: ["미할당", "이벤트", "BLOCKED이력"]
+    matched_bins_json: Optional[str] = None         # JSON list from match_replen_bins + proximity_score
     candidate_status: str = Field(default="PENDING", nullable=False)
     # PENDING / APPROVED / REJECTED / MODIFIED
     modified_qty: Optional[int] = None
@@ -76,6 +77,7 @@ class ReplenishTaskLocation(SQLModel, table=True):
     allocated_qty: int = Field(nullable=False)
     sales_deadline_days: Optional[int] = None
     receipt_date: Optional[str] = None             # DATE stored as TEXT in SQLite
+    proximity_score: Optional[int] = None          # 1-4
     location_status: str = Field(default="PENDING", nullable=False)
     # PENDING / ISSUED / DONE / SKIPPED
     reason_code: Optional[str] = None

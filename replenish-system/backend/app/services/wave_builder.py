@@ -179,6 +179,12 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
             no_replen.append(sku_id)
             continue
 
+        for m in matched:
+            m["proximity_score"] = get_proximity_score_for_bins(
+                history.picking_bin, m["replenish_bin"],
+                zone_cfg, aisle_anchors, access_pts, config,
+            )
+
         zone_pfx = extract_zone_prefix(history.picking_bin or "")
         zc = zone_cfg.get(zone_pfx)
         slack_channel = zc.slack_channel if zc else ""
@@ -192,6 +198,7 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
         ).first()
 
         flags_json = json.dumps(flags, ensure_ascii=False)
+        matched_bins_json = json.dumps(matched, ensure_ascii=False)
         eta_val = None if eta_hours == float("inf") else eta_hours
 
         if existing:
@@ -201,6 +208,7 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
             existing.avg_daily_sales = adjusted_daily
             existing.recommended_qty = recommended_qty
             existing.reason_flags = flags_json
+            existing.matched_bins_json = matched_bins_json
             existing.updated_at = datetime.utcnow()
         else:
             session.add(ReplenishCandidate(
@@ -218,6 +226,7 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
                 avg_daily_sales=adjusted_daily,
                 recommended_qty=recommended_qty,
                 reason_flags=flags_json,
+                matched_bins_json=matched_bins_json,
             ))
 
         result.total_candidates += 1
