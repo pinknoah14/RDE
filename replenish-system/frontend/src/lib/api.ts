@@ -6,7 +6,7 @@ import type {
   Worker, WorkerInput, UploadResult, UploadSession, QueueItem, UnknownZone,
 } from "@/types";
 
-const BASE = "/api/v1";
+const BASE = `${process.env.NEXT_PUBLIC_BACKEND_URL ?? ""}/api/v1`;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
