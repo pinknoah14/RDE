@@ -132,7 +132,7 @@ async def upload_outbound(
 ):
     content = await file.read()
     try:
-        df = parse_outbound_csv(content)
+        df = parse_outbound_csv(content, center_cd)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     return _save_sales(df, file.filename or "outbound.csv", "OUTBOUND", center_cd, uploaded_by, session)
@@ -147,7 +147,7 @@ async def upload_pivot_sales(
 ):
     content = await file.read()
     try:
-        df = parse_pivot_csv(content)
+        df = parse_pivot_csv(content, center_cd)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     return _save_sales(df, file.filename or "pivot.csv", "PIVOT", center_cd, uploaded_by, session)
