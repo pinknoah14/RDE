@@ -10,10 +10,6 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -42,44 +38,21 @@ jobs:
       - name: 통합 테스트
         run: |
           cd replenish-system/backend
-          set -o pipefail
           pytest tests/test_integration.py \
                  tests/test_wave_integration.py \
                  tests/test_scenarios.py \
                  tests/test_slack_mock.py \
-                 -v --tb=long -p no:warnings -x 2>&1 | tee /tmp/pytest_integration.log
+                 -v --tb=short -p no:warnings
         env:
           PYTHONPATH: .
 
       - name: 성능 테스트 (CI 기준 완화)
         run: |
           cd replenish-system/backend
-          set -o pipefail
-          pytest tests/test_performance.py -v --tb=long -p no:warnings \
-            -k "not test_sales_upsert_speed" 2>&1 | tee /tmp/pytest_perf.log
+          pytest tests/test_performance.py -v --tb=short -p no:warnings \
+            -k "not test_sales_upsert_speed"
         env:
           PYTHONPATH: .
-
-      - name: "실패 로그 PR 코멘트 게시"
-        if: failure() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            let body = '## CI 통합 테스트 실패 로그\n\n';
-            for (const f of ['/tmp/pytest_integration.log', '/tmp/pytest_perf.log']) {
-              if (fs.existsSync(f)) {
-                const content = fs.readFileSync(f, 'utf8');
-                const tail = content.split('\n').slice(-200).join('\n');
-                body += '### ' + f.split('/').pop() + '\n```\n' + tail + '\n```\n\n';
-              }
-            }
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body
-            });
 
   frontend-build:
     runs-on: ubuntu-latest

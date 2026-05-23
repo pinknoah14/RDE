@@ -192,6 +192,16 @@ class TestOperationScenarios:
         """
         시나리오: DB 내보내기 → 가져오기 정합성 확인
         """
+        import sqlite3
+        from app.core.database import DB_PATH
+
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if not DB_PATH.exists():
+            conn = sqlite3.connect(str(DB_PATH))
+            conn.execute("CREATE TABLE system_config (config_key TEXT PRIMARY KEY)")
+            conn.commit()
+            conn.close()
+
         res = api_client.get("/api/v1/admin/db-export")
         assert res.status_code == 200
         assert len(res.content) > 0
