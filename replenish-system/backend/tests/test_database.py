@@ -29,7 +29,7 @@ def mem_engine():
 
 
 class TestInitDb:
-    def test_all_16_tables_exist(self, mem_engine):
+    def test_all_tables_exist(self, mem_engine):
         expected = {
             "upload_sessions",
             "waves",
@@ -50,6 +50,7 @@ class TestInitDb:
             "system_config",
             "audit_log",
             "events",
+            "bin_master",
         }
         with mem_engine.connect() as conn:
             result = conn.execute(text(
@@ -58,13 +59,13 @@ class TestInitDb:
             actual = {row[0] for row in result}
         assert expected == actual, f"missing: {expected - actual}, extra: {actual - expected}"
 
-    def test_table_count_is_19(self, mem_engine):
+    def test_table_count_is_20(self, mem_engine):
         with mem_engine.connect() as conn:
             result = conn.execute(text(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
             ))
             count = result.scalar()
-        assert count == 19
+        assert count == 20
 
 
 class TestSeedSystemConfig:

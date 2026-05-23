@@ -14,6 +14,7 @@ from app.api import (
     dashboard,
     admin,
     audit,
+    events,
 )
 
 
@@ -23,7 +24,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="보충 운영 보조 시스템", version="1.7.0", lifespan=lifespan)
+app = FastAPI(title="보충 운영 보조 시스템", version="1.9.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,6 +40,8 @@ app.include_router(tasks.router,         prefix="/api/v1/tasks",         tags=["
 app.include_router(workers.router,       prefix="/api/v1/workers",       tags=["workers"])
 app.include_router(zone_config.router,          prefix="/api/v1/zone-config",          tags=["zone-config"])
 app.include_router(zone_config.floor_ap_router, prefix="/api/v1/floor-access-points",  tags=["floor-access-points"])
+app.include_router(zone_config.picking_router,  prefix="/api/v1/picking-zones",        tags=["picking-zones"])
+app.include_router(events.router,        prefix="/api/v1/events",        tags=["events"])
 app.include_router(system_config.router, prefix="/api/v1/system-config", tags=["system-config"])
 app.include_router(slack.router,         prefix="/api/v1/queue",         tags=["queue"])
 app.include_router(dashboard.router,     prefix="/api/v1/dashboard",     tags=["dashboard"])

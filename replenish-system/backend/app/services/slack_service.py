@@ -6,16 +6,23 @@ from sqlmodel import Session, select
 from app.models.task import ReplenishConfirmedTask, ReplenishTaskLocation, ReplenishTaskQueue
 
 
+PROXIMITY_ICON = {4: "🟢", 3: "🟠", 2: "🟡", 1: "⚪"}
+
+
 def build_task_block(task: ReplenishConfirmedTask, locations: list) -> list[dict]:
     """단일 태스크 Block Kit 블록 생성."""
     loc_lines = []
     for loc in locations:
-        days = f"(판매마감D-{loc.sales_deadline_days})" if loc.sales_deadline_days else ""
-        box_count = loc.allocated_qty // max(1, 1)
-        loc_lines.append(f"• 보충지번: {loc.replenish_bin} × {loc.allocated_qty}개 {days}")
+        days_str = f"D-{loc.sales_deadline_days}" if loc.sales_deadline_days is not None else ""
+        score_icon = PROXIMITY_ICON.get(loc.proximity_score or 0, "")
+        line = f"• `{loc.replenish_bin}` {loc.allocated_qty}개"
+        if days_str:
+            line += f" {days_str}"
+        if score_icon:
+            line += f" {score_icon}"
+        loc_lines.append(line)
 
-    locations_text = "\n".join(loc_lines) if loc_lines else "보충지번 없음"
-    score_text = ""
+    locations_text = "\n".join(loc_lines) if loc_lines else "⚠️ 보충지번 정보 없음"
 
     return [
         {
@@ -24,7 +31,7 @@ def build_task_block(task: ReplenishConfirmedTask, locations: list) -> list[dict
                 "type": "mrkdwn",
                 "text": (
                     f"*{task.sku_name}*\n"
-                    f"피킹지번: `{task.picking_bin}`\n"
+                    f"피킹: `{task.picking_bin}` → 보충:\n"
                     f"{locations_text}"
                 ),
             },

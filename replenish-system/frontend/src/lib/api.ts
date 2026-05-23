@@ -4,6 +4,7 @@ import type {
   FloorAccessPoint, FloorAccessPointInput,
   SystemConfig, DashboardSummary,
   Worker, WorkerInput, UploadResult, UploadSession, QueueItem, UnknownZone,
+  EventItem, PickingZone,
 } from "@/types";
 
 const BASE = "/api/v1";
@@ -126,6 +127,29 @@ export const api = {
     request<Worker>("/workers", { method: "POST", body: JSON.stringify(body) }),
   updateWorker: (id: number, body: Partial<WorkerInput>) =>
     request<Worker>(`/workers/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  dailyResetWorkers: () =>
+    request<{ reset_count: number }>("/workers/daily-reset", { method: "POST" }),
+
+  // 이벤트
+  getEvents: () => request<EventItem[]>("/events"),
+  createEvent: (body: Omit<EventItem, "event_id" | "registered_by"> & { registered_by?: string }) =>
+    request<EventItem>("/events", { method: "POST", body: JSON.stringify(body) }),
+  updateEvent: (id: number, body: Partial<Omit<EventItem, "event_id">>) =>
+    request<EventItem>(`/events/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteEvent: (id: number) =>
+    request<{ deleted: number }>(`/events/${id}`, { method: "DELETE" }),
+
+  // 피킹지번 관리
+  getPickingZones: (q?: string) =>
+    request<PickingZone[]>(`/picking-zones${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  createPickingZone: (body: { bin_id: string; zone: string; memo?: string }) =>
+    request<PickingZone>("/picking-zones", { method: "POST", body: JSON.stringify(body) }),
+  updatePickingZone: (binId: string, body: { is_active?: boolean; memo?: string; zone?: string }) =>
+    request<PickingZone>(`/picking-zones/${encodeURIComponent(binId)}`, {
+      method: "PATCH", body: JSON.stringify(body),
+    }),
+  deletePickingZone: (binId: string) =>
+    request<{ deleted: string }>(`/picking-zones/${encodeURIComponent(binId)}`, { method: "DELETE" }),
 
   // DB 관리
   exportDb: () => fetch(`${BASE}/admin/db-export`),

@@ -102,7 +102,16 @@ def list_candidates(
         q = q.where(ReplenishCandidate.candidate_status == status)
     if min_score is not None:
         q = q.where(ReplenishCandidate.risk_score >= min_score)
-    return session.exec(q.order_by(ReplenishCandidate.risk_score.desc())).all()
+    rows = session.exec(q.order_by(ReplenishCandidate.risk_score.desc())).all()
+    result = []
+    for c in rows:
+        d = c.model_dump()
+        try:
+            d["matched_bins"] = json.loads(c.matched_bins_json or "[]")
+        except Exception:
+            d["matched_bins"] = []
+        result.append(d)
+    return result
 
 
 @router.post("/{wave_id}/candidates/{candidate_id}/approve")

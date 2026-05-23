@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.dependencies import get_session
-from app.models.zone import FloorAccessPoint, ScatteredAisleAnchor, ZoneConfig, UnknownZoneFlag
+from app.models.zone import FloorAccessPoint, ScatteredAisleAnchor, ZoneConfig, UnknownZoneFlag, PickingZoneMaster
 
 router = APIRouter()
 
@@ -240,3 +240,76 @@ def delete_floor_access_point(access_id: int, session: Session = Depends(get_ses
     session.delete(ap)
     session.commit()
     return {"deleted": access_id}
+
+
+# ---------------------------------------------------------------------------
+# 피킹지번 마스터 (v1.9)
+# ---------------------------------------------------------------------------
+
+picking_router = APIRouter()
+
+
+class PickingZoneCreate(BaseModel):
+    bin_id: str
+    zone: str
+    memo: str | None = None
+
+
+class PickingZoneUpdate(BaseModel):
+    is_active: bool | None = None
+    memo: str | None = None
+    zone: str | None = None
+
+
+@picking_router.get("")
+def list_picking_zones(
+    q: str | None = Query(default=None),
+    limit: int = Query(default=200, le=1000),
+    session: Session = Depends(get_session),
+) -> list[Any]:
+    stmt = select(PickingZoneMaster)
+    if q:
+        stmt = stmt.where(PickingZoneMaster.bin_id.contains(q))
+    return session.exec(stmt.order_by(PickingZoneMaster.bin_id).limit(limit)).all()
+
+
+@picking_router.post("")
+def create_picking_zone(
+    body: PickingZoneCreate,
+    session: Session = Depends(get_session),
+) -> Any:
+    existing = session.get(PickingZoneMaster, body.bin_id)
+    if existing:
+        raise HTTPException(status_code=409, detail="이미 등록된 지번")
+    pz = PickingZoneMaster(**body.model_dump())
+    session.add(pz)
+    session.commit()
+    session.refresh(pz)
+    return pz
+
+
+@picking_router.patch("/{bin_id}")
+def update_picking_zone(
+    bin_id: str,
+    body: PickingZoneUpdate,
+    session: Session = Depends(get_session),
+) -> Any:
+    pz = session.get(PickingZoneMaster, bin_id)
+    if not pz:
+        raise HTTPException(status_code=404, detail="지번 없음")
+    for field, value in body.model_dump(exclude_none=True).items():
+        setattr(pz, field, value)
+    pz.updated_at = datetime.utcnow()
+    session.commit()
+    session.refresh(pz)
+    return pz
+
+
+@picking_router.delete("/{bin_id}")
+def delete_picking_zone(bin_id: str, session: Session = Depends(get_session)) -> dict:
+    pz = session.get(PickingZoneMaster, bin_id)
+    if not pz:
+        raise HTTPException(status_code=404, detail="지번 없음")
+    session.delete(pz)
+    session.commit()
+    return {"deleted": bin_id}

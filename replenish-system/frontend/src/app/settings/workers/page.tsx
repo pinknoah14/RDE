@@ -27,13 +27,29 @@ export default function WorkersPage() {
     } catch (e) { toast({ title: "오류", description: (e as Error).message, variant: "destructive" }); }
   };
 
+  const handleDailyReset = async () => {
+    if (!confirm("모든 작업자를 퇴근 처리하시겠습니까?\n(is_active, is_sub_worker 초기화)")) return;
+    try {
+      const res = await api.dailyResetWorkers();
+      toast({ title: `초기화 완료 — ${res.reset_count}명` });
+      load();
+    } catch (e) {
+      toast({ title: "오류", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-bold">작업자 관리</h1>
-        <Button size="sm" onClick={() => { setEditing("new"); setForm(EMPTY); }} disabled={editing !== null}>
-          <Plus size={14} />추가
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={handleDailyReset} disabled={editing !== null}>
+            일괄 초기화
+          </Button>
+          <Button size="sm" onClick={() => { setEditing("new"); setForm(EMPTY); }} disabled={editing !== null}>
+            <Plus size={14} />추가
+          </Button>
+        </div>
       </div>
       {loading ? <div className="h-40 animate-pulse rounded-lg bg-gray-100" /> : (
         <div className="overflow-hidden rounded-lg border">

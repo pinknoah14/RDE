@@ -9,6 +9,14 @@ export interface Wave {
   target_sku_count: number;
 }
 
+export interface MatchedBin {
+  replenish_bin: string;
+  allocated_qty: number;
+  deadline_days?: number | null;
+  receipt_date?: string | null;
+  proximity_score?: number | null;
+}
+
 export interface Candidate {
   candidate_id: number;
   wave_id: number;
@@ -31,6 +39,25 @@ export interface Candidate {
   rejected_reason?: string;
   zone: string;
   slack_channel: string;
+  matched_bins: MatchedBin[];
+}
+
+export interface EventItem {
+  event_id: number;
+  sku_id: string;
+  event_type: string;
+  event_name?: string;
+  start_date: string;
+  end_date: string;
+  registered_by: string;
+  memo?: string;
+}
+
+export interface PickingZone {
+  bin_id: string;
+  zone: string;
+  is_active: boolean;
+  memo?: string;
 }
 
 export interface ZoneConfig {

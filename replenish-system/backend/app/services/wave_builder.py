@@ -2,13 +2,13 @@ import json
 import math
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, date as date_type
 
 from sqlmodel import Session, select
 
 from app.core.config import get_config, get_config_list
 from app.models.inventory import ReplenishBinSnapshot
-from app.models.sku import SkuPickingHistory, SkuSalesSummary
+from app.models.sku import SkuPickingHistory, SkuSalesSummary, DailySalesHistory
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask
 from app.models.upload import UploadSession
 from app.models.zone import FloorAccessPoint, ScatteredAisleAnchor, ZoneConfig
@@ -201,11 +201,21 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
         matched_bins_json = json.dumps(matched, ensure_ascii=False)
         eta_val = None if eta_hours == float("inf") else eta_hours
 
+        today_row = session.exec(
+            select(DailySalesHistory).where(
+                DailySalesHistory.sku_id == sku_id,
+                DailySalesHistory.center_cd == center_cd,
+                DailySalesHistory.sales_date == date_type.today(),
+            )
+        ).first()
+        today_sales = today_row.sales_qty if today_row else 0
+
         if existing:
             existing.risk_score = float(score)
             existing.risk_level = level
             existing.eta_hours = eta_val
             existing.avg_daily_sales = adjusted_daily
+            existing.today_sales = today_sales
             existing.recommended_qty = recommended_qty
             existing.reason_flags = flags_json
             existing.matched_bins_json = matched_bins_json
@@ -224,6 +234,7 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
                 risk_level=level,
                 eta_hours=eta_val,
                 avg_daily_sales=adjusted_daily,
+                today_sales=today_sales,
                 recommended_qty=recommended_qty,
                 reason_flags=flags_json,
                 matched_bins_json=matched_bins_json,

@@ -158,7 +158,7 @@ async def upload_pivot_sales(
 @router.post("/bin-master")
 async def upload_bin_master(
     file: UploadFile = File(...),
-    bin_type: str = Query(default="PICKING", regex="^(PICKING|REPLENISH)$"),
+    bin_type: str = Query(default="PICKING", pattern="^(PICKING|REPLENISH)$"),
     center_cd: str = Form(default="GGH1"),
     session: Session = Depends(get_session),
 ):

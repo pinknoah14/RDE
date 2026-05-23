@@ -45,18 +45,36 @@ export function CandidateCard({ c, onApprove, onReject, onModifyQty, onMoveSecti
           </Badge>
         </div>
 
-        {/* Bin route: picking → replenish with proximity */}
-        <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{c.picking_bin || "-"}</span>
-          <ArrowRight size={12} />
-          <span className="font-mono bg-purple-50 px-1.5 py-0.5 rounded text-[#5F0080]">
-            {c.replenish_bin ?? c.zone}
-          </span>
-          {c.proximity_score !== undefined && (
-            <span title={`proximity_score: ${c.proximity_score}`}>
-              {proximityDot(c.proximity_score)}
-            </span>
-          )}
+        {/* Bin route: picking → replenish list (FEFO) */}
+        <div className="mb-2">
+          <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{c.picking_bin || "-"}</span>
+            <ArrowRight size={12} />
+            <span>보충지번</span>
+          </div>
+          <div className="space-y-1 pl-1">
+            {c.matched_bins?.length > 0 ? (
+              c.matched_bins.map((b, i) => (
+                <div key={`${b.replenish_bin}-${i}`} className="flex items-center gap-2 text-xs">
+                  <span className="w-4 text-muted-foreground">{i + 1}.</span>
+                  <span className="font-mono bg-purple-50 px-1.5 py-0.5 rounded text-[#5F0080]">
+                    {b.replenish_bin}
+                  </span>
+                  <span className="text-muted-foreground">{b.allocated_qty}개</span>
+                  {b.deadline_days != null && (
+                    <span className="text-muted-foreground">D-{b.deadline_days}</span>
+                  )}
+                  {b.proximity_score != null && (
+                    <span title={`인접도 ${b.proximity_score}`}>
+                      {proximityDot(b.proximity_score)}
+                    </span>
+                  )}
+                </div>
+              ))
+            ) : (
+              <span className="text-xs text-muted-foreground">{c.zone}</span>
+            )}
+          </div>
         </div>
 
         {/* Sales stats */}
