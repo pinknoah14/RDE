@@ -91,7 +91,7 @@ export interface SystemConfig {
   config_value: string;
   config_type: string;
   config_group: string;
-  display_name: string;
+  label: string;
   description?: string;
 }
 
@@ -144,6 +144,9 @@ export interface UploadResult {
   sku_count?: number;
   unknown_zones?: string[];
   multi_bin_skus?: number;
+  bins_upserted?: number;
+  zones_created?: number;
+  zones_existing?: number;
 }
 
 export interface UploadSession {

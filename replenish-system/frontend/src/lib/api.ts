@@ -103,6 +103,10 @@ export const api = {
     upload<UploadResult>("/upload/outbound", file, { center_cd: centerCd }),
   uploadPivot: (file: File, centerCd = "GGH1") =>
     upload<UploadResult>("/upload/pivot-sales", file, { center_cd: centerCd }),
+  uploadPickingBins: (file: File) =>
+    upload<UploadResult>("/upload/bin-master?bin_type=PICKING", file),
+  uploadReplenishBins: (file: File) =>
+    upload<UploadResult>("/upload/bin-master?bin_type=REPLENISH", file),
   getUploadSessions: () => request<UploadSession[]>("/upload/sessions"),
 
   // 대시보드

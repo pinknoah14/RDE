@@ -13,6 +13,7 @@ const GROUPS = [
   { key: "PICKING",   label: "피킹" },
   { key: "SLACK",     label: "Slack" },
   { key: "WORKER",    label: "작업자" },
+  { key: "SYSTEM",    label: "시스템" },
 ];
 
 const ALGO_V17_KEYS = [
@@ -59,7 +60,7 @@ function ConfigGroup({ configs, group }: { configs: SystemConfig[]; group: strin
       {groupConfigs.map((c) => (
         <div key={c.config_key} className="flex items-center justify-between gap-4 rounded-lg border p-3">
           <div className="flex-1">
-            <p className="text-sm font-medium">{c.display_name || c.config_key}</p>
+            <p className="text-sm font-medium">{c.label || c.config_key}</p>
             {c.description && <p className="text-xs text-muted-foreground">{c.description}</p>}
             {group === "ALGORITHM" && ALGO_V17_KEYS.includes(c.config_key) && (
               <span className="mt-0.5 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs text-[#5F0080]">v1.7</span>

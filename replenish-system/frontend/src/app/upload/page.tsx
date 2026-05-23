@@ -93,6 +93,15 @@ function UploadZone({ label, accept = ".csv", onUpload }: UploadZoneProps) {
             {result.sku_count !== undefined && (
               <p className="text-green-700">SKU 판매요약 갱신: {result.sku_count}개</p>
             )}
+            {result.bins_upserted !== undefined && (
+              <p className="text-green-700">지번 저장: {result.bins_upserted}개</p>
+            )}
+            {result.zones_created !== undefined && result.zones_created > 0 && (
+              <p className="text-green-700">존코드 신규 등록: {result.zones_created}개</p>
+            )}
+            {result.zones_existing !== undefined && result.zones_existing > 0 && (
+              <p className="text-green-600">기존 존코드: {result.zones_existing}개</p>
+            )}
             {result.unknown_zones && result.unknown_zones.length > 0 && (
               <p className="flex items-center gap-1 text-amber-600">
                 <AlertTriangle size={12} />
@@ -120,10 +129,18 @@ export default function UploadPage() {
   return (
     <div className="p-6">
       <h1 className="mb-6 text-xl font-bold">파일 업로드</h1>
-      <div className="grid gap-4 md:grid-cols-3">
+
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">운영 데이터</p>
+      <div className="mb-6 grid gap-4 md:grid-cols-3">
         <UploadZone label="재고현황 CSV" onUpload={(f) => api.uploadInventory(f)} />
         <UploadZone label="출고현황 CSV" onUpload={(f) => api.uploadOutbound(f)} />
         <UploadZone label="피벗테이블 CSV (판매)" onUpload={(f) => api.uploadPivot(f)} />
+      </div>
+
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">지번 마스터</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <UploadZone label="피킹지번 마스터 CSV" onUpload={(f) => api.uploadPickingBins(f)} />
+        <UploadZone label="보충/보류지번 마스터 CSV" onUpload={(f) => api.uploadReplenishBins(f)} />
       </div>
     </div>
   );

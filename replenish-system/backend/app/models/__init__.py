@@ -16,6 +16,7 @@ from app.models.config import SystemConfig
 from app.models.audit import AuditLog
 from app.models.event import Event
 from app.models.inventory import ReplenishBinSnapshot
+from app.models.bin_master import BinMaster
 
 __all__ = [
     "UploadSession",
@@ -37,4 +38,5 @@ __all__ = [
     "AuditLog",
     "Event",
     "ReplenishBinSnapshot",
+    "BinMaster",
 ]

@@ -23,7 +23,7 @@ def set_sqlite_pragma(dbapi_conn, connection_record):
 
 SYSTEM_CONFIG_SEED = [
     # SLACK
-    ("slack_bot_token",          "",                       "SECRET",  "SLACK",     "Bot Token",                  None),
+    ("slack_bot_token",          "",                       "SECRET",  "SLACK",     "Slack 봇 토큰",               None),
     ("slack_workspace",          "",                       "TEXT",    "SLACK",     "워크스페이스명",              None),
     # WAVE
     ("wave_default_sku_count",   "40",                     "INTEGER", "WAVE",      "기본 추천 SKU 수",            None),
