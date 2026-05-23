@@ -44,7 +44,7 @@ export function CandidateTable({ candidates, onApprove, onReject }: Props) {
                 <div className="flex items-center gap-1 text-xs">
                   <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">{c.picking_bin || "-"}</span>
                   <ArrowRight size={10} />
-                  <span className="font-mono bg-blue-50 px-1 py-0.5 rounded text-blue-700">
+                  <span className="font-mono bg-purple-50 px-1 py-0.5 rounded text-[#5F0080]">
                     {c.replenish_bin ?? c.zone}
                   </span>
                   {c.proximity_score !== undefined && (
@@ -63,7 +63,7 @@ export function CandidateTable({ candidates, onApprove, onReject }: Props) {
                   <div className="flex gap-1">
                     {onApprove && c.candidate_status === "PENDING" && (
                       <button onClick={() => onApprove(c.candidate_id)}
-                        className="rounded bg-blue-50 px-2 py-1 text-xs text-blue-700 hover:bg-blue-100">승인</button>
+                        className="rounded bg-purple-50 px-2 py-1 text-xs text-[#5F0080] hover:bg-purple-100">승인</button>
                     )}
                     {onReject && c.candidate_status === "PENDING" && (
                       <button onClick={() => onReject(c.candidate_id)}

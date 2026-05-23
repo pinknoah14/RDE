@@ -58,7 +58,7 @@ export default function QueuePage({ params }: { params: Promise<{ wave_id: strin
   const channels = Array.from(new Set(zones.map((z) => z.slack_channel).filter(Boolean)));
 
   if (loading) {
-    return <div className="flex h-40 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" /></div>;
+    return <div className="flex h-40 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: "#5F0080", borderTopColor: "transparent" }} /></div>;
   }
 
   return (

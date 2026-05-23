@@ -47,7 +47,7 @@ function UploadZone({ label, accept = ".csv", onUpload }: UploadZoneProps) {
         <div
           className={cn(
             "flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer",
-            dragging ? "border-blue-400 bg-blue-50" : "border-gray-300 hover:border-gray-400"
+            dragging ? "border-purple-400 bg-purple-50" : "border-gray-300 hover:border-gray-400"
           )}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -58,7 +58,7 @@ function UploadZone({ label, accept = ".csv", onUpload }: UploadZoneProps) {
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handle(f); e.target.value = ""; }} />
           {loading ? (
             <div className="flex flex-col items-center gap-2">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: "#5F0080", borderTopColor: "transparent" }} />
               <span className="text-sm text-muted-foreground">업로드 중...</span>
             </div>
           ) : (
@@ -100,7 +100,7 @@ function UploadZone({ label, accept = ".csv", onUpload }: UploadZoneProps) {
               </p>
             )}
             {result.multi_bin_skus !== undefined && result.multi_bin_skus > 0 && (
-              <p className="text-blue-600">🔵 다중 피킹지번 감지: {result.multi_bin_skus} SKU</p>
+              <p style={{ color: "#5F0080" }}>🔵 다중 피킹지번 감지: {result.multi_bin_skus} SKU</p>
             )}
           </div>
         )}

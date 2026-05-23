@@ -50,7 +50,7 @@ export default function WorkersPage() {
             </thead>
             <tbody className="divide-y">
               {editing === "new" && (
-                <tr className="bg-blue-50">
+                <tr className="bg-purple-50">
                   <td className="px-4 py-2"><input value={form.worker_name} onChange={(e) => setForm((p) => ({ ...p, worker_name: e.target.value }))} placeholder="이름" className="w-full rounded border px-2 py-1 text-sm" /></td>
                   <td className="px-4 py-2"><select value={form.worker_type} onChange={(e) => setForm((p) => ({ ...p, worker_type: e.target.value as "FORKLIFT" | "WALKING" }))} className="rounded border px-2 py-1 text-sm"><option value="FORKLIFT">지게차</option><option value="WALKING">도보</option></select></td>
                   <td className="px-4 py-2"><input type="number" min={1} value={form.max_tasks} onChange={(e) => setForm((p) => ({ ...p, max_tasks: +e.target.value }))} className="w-16 rounded border px-2 py-1 text-sm" /></td>
@@ -66,7 +66,7 @@ export default function WorkersPage() {
                   <td className="px-4 py-3 text-muted-foreground">{w.max_tasks}</td>
                   <td className="px-4 py-3 text-center">{w.is_sub_worker ? "✅" : "—"}</td>
                   <td className="px-4 py-3 text-center">{w.is_active ? "✅" : "❌"}</td>
-                  <td className="px-4 py-3"><button onClick={() => { setEditing(w.worker_id); setForm({ worker_name: w.worker_name, worker_type: w.worker_type, is_active: w.is_active, is_sub_worker: w.is_sub_worker, max_tasks: w.max_tasks }); }} className="text-muted-foreground hover:text-blue-600"><Pencil size={14} /></button></td>
+                  <td className="px-4 py-3"><button onClick={() => { setEditing(w.worker_id); setForm({ worker_name: w.worker_name, worker_type: w.worker_type, is_active: w.is_active, is_sub_worker: w.is_sub_worker, max_tasks: w.max_tasks }); }} className="text-muted-foreground hover:text-[#5F0080]"><Pencil size={14} /></button></td>
                 </tr>
               ))}
             </tbody>

@@ -62,7 +62,7 @@ function ConfigGroup({ configs, group }: { configs: SystemConfig[]; group: strin
             <p className="text-sm font-medium">{c.display_name || c.config_key}</p>
             {c.description && <p className="text-xs text-muted-foreground">{c.description}</p>}
             {group === "ALGORITHM" && ALGO_V17_KEYS.includes(c.config_key) && (
-              <span className="mt-0.5 inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">v1.7</span>
+              <span className="mt-0.5 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs text-[#5F0080]">v1.7</span>
             )}
           </div>
           <div className="flex items-center gap-2">

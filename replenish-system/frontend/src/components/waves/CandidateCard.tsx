@@ -49,7 +49,7 @@ export function CandidateCard({ c, onApprove, onReject, onModifyQty, onMoveSecti
         <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{c.picking_bin || "-"}</span>
           <ArrowRight size={12} />
-          <span className="font-mono bg-blue-50 px-1.5 py-0.5 rounded text-blue-700">
+          <span className="font-mono bg-purple-50 px-1.5 py-0.5 rounded text-[#5F0080]">
             {c.replenish_bin ?? c.zone}
           </span>
           {c.proximity_score !== undefined && (

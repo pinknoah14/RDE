@@ -61,7 +61,7 @@ export default function WavesPage() {
                   <td className="px-4 py-3 text-muted-foreground">{w.target_sku_count}</td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(w.created_at)}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/waves/${w.wave_id}`} className="text-blue-600 hover:underline text-xs">
+                    <Link href={`/waves/${w.wave_id}`} className="hover:underline text-xs" style={{ color: "#5F0080" }}>
                       {w.wave_status === "DRAFT" ? "검수하기" : "보기"}
                     </Link>
                   </td>

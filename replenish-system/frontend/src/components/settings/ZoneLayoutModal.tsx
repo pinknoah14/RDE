@@ -58,7 +58,7 @@ export function ZoneLayoutModal({ zoneCode, open, onClose }: { zoneCode: string;
         </DialogHeader>
 
         {loading ? (
-          <div className="flex justify-center py-8"><div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" /></div>
+          <div className="flex justify-center py-8"><div className="h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: "#5F0080", borderTopColor: "transparent" }} /></div>
         ) : (
           <div className="space-y-4">
             {field("층",
@@ -89,7 +89,7 @@ export function ZoneLayoutModal({ zoneCode, open, onClose }: { zoneCode: string;
             {field("통로 간격 (m)", numInput(form.aisle_gap, (v) => setForm((p) => ({ ...p, aisle_gap: v }))))}
             {field("베이 간격 (m)", numInput(form.bay_gap, (v) => setForm((p) => ({ ...p, bay_gap: v }))))}
 
-            <p className="rounded-md bg-blue-50 p-2 text-xs text-blue-700">
+            <p className="rounded-md bg-purple-50 p-2 text-xs text-[#5F0080]">
               ℹ️ 미설정 시 존 코드 비교 폴백 동작 | 적용 범위: 다음 웨이브부터
             </p>
 

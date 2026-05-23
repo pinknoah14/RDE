@@ -50,7 +50,7 @@ export function AisleAnchorModal({ zoneCode, open, onClose }: { zoneCode: string
         </DialogHeader>
 
         {loading ? (
-          <div className="flex justify-center py-8"><div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" /></div>
+          <div className="flex justify-center py-8"><div className="h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: "#5F0080", borderTopColor: "transparent" }} /></div>
         ) : (
           <div className="space-y-4">
             <div className="overflow-hidden rounded-md border">
@@ -108,7 +108,7 @@ export function AisleAnchorModal({ zoneCode, open, onClose }: { zoneCode: string
               <Plus size={12} />통로 추가
             </Button>
 
-            <p className="rounded-md bg-blue-50 p-2 text-xs text-blue-700">
+            <p className="rounded-md bg-purple-50 p-2 text-xs text-[#5F0080]">
               ℹ️ 미설정 통로: 존 코드 비교 폴백 적용
             </p>
 

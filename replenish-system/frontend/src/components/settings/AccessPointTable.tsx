@@ -18,7 +18,7 @@ export function AccessPointTable({
   points, editing, form, onChange, onSave, onCancel, onEdit, onDelete,
 }: Props) {
   const FormRow = () => (
-    <tr className="bg-blue-50">
+    <tr className="bg-purple-50">
       <td className="px-4 py-2">
         <input value={form.name} onChange={(e) => onChange({ name: e.target.value })}
           placeholder="이름" className="w-full rounded border px-2 py-1 text-sm" />
@@ -83,7 +83,7 @@ export function AccessPointTable({
                 <td className="px-4 py-3 text-center">{p.is_active ? "✅" : "❌"}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1">
-                    <button onClick={() => onEdit(p)} className="text-muted-foreground hover:text-blue-600">
+                    <button onClick={() => onEdit(p)} className="text-muted-foreground hover:text-[#5F0080]">
                       <Pencil size={14} />
                     </button>
                     <button onClick={() => onDelete(p.access_id)} className="text-muted-foreground hover:text-red-600">

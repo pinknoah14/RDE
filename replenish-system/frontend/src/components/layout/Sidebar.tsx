@@ -45,9 +45,18 @@ export function Sidebar() {
   const toggle = (href: string) => setOpen((p) => ({ ...p, [href]: !p[href] }));
 
   return (
-    <aside className="flex h-screen w-52 flex-col border-r bg-gray-50">
-      <div className="flex h-14 items-center border-b px-4">
-        <span className="text-sm font-bold text-blue-600">보충 운영 시스템</span>
+    <aside className="flex h-screen w-52 flex-col" style={{ backgroundColor: "#5F0080" }}>
+      <div className="flex h-16 items-center gap-3 px-4 border-b border-white/10">
+        <div
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white font-black text-base"
+          style={{ color: "#5F0080" }}
+        >
+          K
+        </div>
+        <div>
+          <p className="text-sm font-bold text-white leading-snug">보충 운영</p>
+          <p className="text-xs text-white/50 leading-snug">Kurly WMS</p>
+        </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-2 text-sm">
@@ -58,8 +67,8 @@ export function Sidebar() {
                 <button
                   onClick={() => toggle(item.href)}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-gray-200",
-                    pathname.startsWith(item.href) && "text-blue-600 font-medium"
+                    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-white/70 hover:bg-white/10",
+                    pathname.startsWith(item.href) && "text-white font-medium"
                   )}
                 >
                   {item.icon}
@@ -73,8 +82,8 @@ export function Sidebar() {
                         key={c.href}
                         href={c.href}
                         className={cn(
-                          "block rounded-md px-3 py-1.5 hover:bg-gray-200",
-                          pathname === c.href && "bg-blue-100 text-blue-700 font-medium"
+                          "block rounded-md px-3 py-1.5 text-white/70 hover:bg-white/10",
+                          pathname === c.href && "bg-white/15 text-white font-medium"
                         )}
                       >
                         {c.label}
@@ -87,8 +96,8 @@ export function Sidebar() {
               <Link
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-2 rounded-md px-3 py-2 hover:bg-gray-200",
-                  pathname === item.href && "bg-blue-100 text-blue-700 font-medium"
+                  "flex items-center gap-2 rounded-md px-3 py-2 text-white/70 hover:bg-white/10",
+                  pathname === item.href && "bg-white/15 text-white font-medium"
                 )}
               >
                 {item.icon}
@@ -99,7 +108,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t p-3 text-xs text-muted-foreground">
+      <div className="border-t border-white/10 p-3 text-xs text-white/40">
         <p className="font-medium">v1.7.0</p>
       </div>
     </aside>

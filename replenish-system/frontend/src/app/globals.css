@@ -2,22 +2,22 @@
 
 @layer base {
   :root {
-    --color-border: oklch(91% 0.02 240);
+    --color-border: oklch(91% 0.02 310);
     --color-background: oklch(100% 0 0);
-    --color-foreground: oklch(15% 0.02 240);
+    --color-foreground: oklch(12% 0.02 310);
     --color-card: oklch(100% 0 0);
-    --color-card-foreground: oklch(15% 0.02 240);
-    --color-primary: oklch(55% 0.2 255);
-    --color-primary-foreground: oklch(98% 0.01 255);
-    --color-secondary: oklch(95% 0.01 240);
-    --color-secondary-foreground: oklch(25% 0.02 240);
-    --color-muted: oklch(95% 0.01 240);
-    --color-muted-foreground: oklch(55% 0.02 240);
-    --color-accent: oklch(95% 0.01 240);
-    --color-accent-foreground: oklch(25% 0.02 240);
+    --color-card-foreground: oklch(12% 0.02 310);
+    --color-primary: oklch(33% 0.28 310);
+    --color-primary-foreground: oklch(98% 0.01 310);
+    --color-secondary: oklch(97% 0.03 310);
+    --color-secondary-foreground: oklch(33% 0.28 310);
+    --color-muted: oklch(97% 0.01 310);
+    --color-muted-foreground: oklch(55% 0.04 310);
+    --color-accent: oklch(95% 0.04 310);
+    --color-accent-foreground: oklch(33% 0.28 310);
     --color-destructive: oklch(58% 0.22 25);
     --color-destructive-foreground: oklch(98% 0.01 25);
-    --color-ring: oklch(55% 0.2 255);
+    --color-ring: oklch(33% 0.28 310);
     --radius: 0.5rem;
   }
 }
