@@ -25,9 +25,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="보충 운영 보조 시스템", version="1.7.0", lifespan=lifespan)
 
+_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "https://rde-alpha.vercel.app",
+    "https://*.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_CORS_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
