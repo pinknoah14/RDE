@@ -16,6 +16,7 @@ from app.services.csv_parser import (
     detect_new_skus,
     detect_unknown_zones,
     load_inventory_csv_from_bytes,
+    restore_missing_picking_bins,
     update_picking_history,
 )
 from app.services.sales_parser import parse_outbound_csv, parse_pivot_csv
@@ -65,6 +66,11 @@ async def upload_inventory(
     picking_df = classified["picking"]
     replenish_df = classified["replenish"]
 
+    # WMS 유실 피킹지번 복구 (avail_qty=0이라 CSV에서 사라진 행 보충)
+    restored_before = picking_df.height
+    picking_df = restore_missing_picking_bins(picking_df, session)
+    restored_count = picking_df.height - restored_before
+
     unknown_zones = detect_unknown_zones(picking_df, replenish_df, session)
     update_picking_history(picking_df, session)
     multi_bins = detect_multi_picking_bins(picking_df, session)
@@ -90,6 +96,7 @@ async def upload_inventory(
         rows=len(df),
         picking=len(picking_df),
         replenish=len(replenish_df),
+        restored=restored_count,
         unknown_zones=unknown_zones,
     )
 
@@ -99,6 +106,7 @@ async def upload_inventory(
         "picking_count": len(picking_df),
         "replenish_count": len(replenish_df),
         "hold_count": len(classified["hold"]),
+        "restored_picking_bins": restored_count,
         "unknown_zones": unknown_zones,
         "multi_bin_skus": len(multi_bins),
         "new_skus": new_skus,

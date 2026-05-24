@@ -1,9 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Users, TrendingUp } from "lucide-react";
+import { AlertTriangle, RefreshCw, Users, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
 import type { DashboardSummary } from "@/types";
 
@@ -14,18 +16,65 @@ const RISK_CONFIG = [
   { level: "LOW",      label: "낮음",  bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200" },
 ];
 
+const POLL_INTERVAL_MS = 5 * 60 * 1000;
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [urgentLoading, setUrgentLoading] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    api.getDashboard()
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+  const loadDashboard = useCallback(async () => {
+    try {
+      const res = await api.getDashboard();
+      setData(res);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadDashboard();
+    intervalRef.current = setInterval(loadDashboard, POLL_INTERVAL_MS);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [loadDashboard]);
+
+  const counts = data?.risk_counts ?? { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+
+  const handleUrgentWave = async () => {
+    const total = counts.CRITICAL;
+    if (total === 0) return;
+    if (!confirm(`CRITICAL ${total}개로 긴급 웨이브를 즉시 생성합니다.`)) return;
+    setUrgentLoading(true);
+    try {
+      const res = await api.createUrgentWaveFromDashboard({
+        auto_confirm: true,
+        min_risk_level: "CRITICAL",
+      });
+      toast({
+        title: `⚡ 긴급 웨이브 생성됨`,
+        description: `${res.candidates}개 후보 → ${res.wave_name}`,
+      });
+      router.push(`/waves/${res.wave_id}`);
+    } catch (e) {
+      toast({
+        title: "긴급 웨이브 생성 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setUrgentLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -40,7 +89,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <div className="p-6">
         <h1 className="mb-6 text-xl font-bold">대시보드</h1>
@@ -51,14 +100,23 @@ export default function DashboardPage() {
     );
   }
 
-  const counts = data?.risk_counts ?? { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
-
   return (
     <div className="p-6">
-      <h1 className="mb-6 text-xl font-bold">대시보드</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-xl font-bold">대시보드</h1>
+        <p className="text-xs text-muted-foreground">
+          마지막 갱신: {lastUpdated?.toLocaleTimeString("ko-KR") ?? "-"}
+          <button
+            onClick={loadDashboard}
+            className="ml-2 inline-flex items-center gap-1 underline hover:text-foreground"
+          >
+            <RefreshCw size={11} /> 지금 갱신
+          </button>
+        </p>
+      </div>
 
       {/* 위험도 카드 */}
-      <div className="mb-6 grid gap-3 md:grid-cols-4">
+      <div className="mb-3 grid gap-3 md:grid-cols-4">
         {RISK_CONFIG.map(({ level, label, bg, text, border }) => (
           <button
             key={level}
@@ -72,6 +130,20 @@ export default function DashboardPage() {
             <p className="mt-1 text-xs text-muted-foreground">SKU</p>
           </button>
         ))}
+      </div>
+
+      {/* 긴급 웨이브 즉시 생성 */}
+      <div className="mb-6 flex justify-end">
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={handleUrgentWave}
+          disabled={counts.CRITICAL === 0 || urgentLoading}
+          className="gap-1"
+        >
+          <Zap size={14} />
+          {urgentLoading ? "생성 중..." : `긴급 웨이브 즉시 생성 (CRITICAL ${counts.CRITICAL})`}
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

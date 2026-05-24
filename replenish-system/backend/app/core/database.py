@@ -1,4 +1,7 @@
 from pathlib import Path
+import shutil
+from datetime import datetime
+
 from sqlmodel import create_engine, SQLModel, Session
 from sqlalchemy import event
 
@@ -98,6 +101,11 @@ SYSTEM_CONFIG_SEED = [
     ("exclude_zone_patterns",    "PKMOVE01,STOP,LQ,RT",    "CSV_STR", "SYSTEM",    "보류존 패턴",                  None),
     ("retention_days_sales",     "30",                     "INTEGER", "SYSTEM",    "판매이력 보존(일)",             None),
     ("retention_days_operation", "90",                     "INTEGER", "SYSTEM",    "운영이력 보존(일)",             None),
+    (
+        "admin_pin", "", "SECRET", "SYSTEM",
+        "관리자 PIN",
+        "4~8자리 숫자. 빈 값이면 PIN 없이 접속. 설정 후 재접속 필요.",
+    ),
 ]
 
 
@@ -129,8 +137,29 @@ def seed_system_config(session: Session | None = None):
             _seed(s)
 
 
+def auto_backup_db() -> Path | None:
+    """앱 시작 시 DB를 data/backups/ 에 타임스탬프 백업. 7일 이전 백업 삭제."""
+    if not DB_PATH.exists():
+        return None
+
+    backup_dir = DB_PATH.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = backup_dir / f"replenish_{timestamp}.db"
+    shutil.copy2(DB_PATH, backup_path)
+
+    cutoff = datetime.now().timestamp() - (7 * 24 * 3600)
+    for old in backup_dir.glob("replenish_*.db"):
+        if old.stat().st_mtime < cutoff:
+            old.unlink()
+
+    return backup_path
+
+
 def init_db():
     # 모든 모델 임포트하여 메타데이터에 등록
     import app.models  # noqa: F401
+    auto_backup_db()
     SQLModel.metadata.create_all(engine)
     seed_system_config()

@@ -147,6 +147,56 @@ def classify_inventory(df: pl.DataFrame, session: Session) -> dict[str, pl.DataF
     }
 
 
+def restore_missing_picking_bins(
+    picking_df: pl.DataFrame,
+    session: Session,
+) -> pl.DataFrame:
+    """WMS 유실 피킹지번 복구 — avail_qty=0이면 CSV에서 행이 사라지는 버그 대응.
+
+    sku_picking_history에 confidence HIGH/MEDIUM/LOW로 기록된 SKU 중
+    이번 CSV에 없는 것들을 가용수량=0 행으로 복구한다.
+    관리자가 대시보드에서 미할당으로 인식하도록 한다.
+    """
+    if picking_df.height == 0:
+        sku_in_csv: set[str] = set()
+    else:
+        sku_in_csv = set(picking_df["상품코드"].to_list())
+
+    histories = session.exec(
+        select(SkuPickingHistory).where(
+            SkuPickingHistory.confidence.in_(["HIGH", "MEDIUM", "LOW"]),
+            SkuPickingHistory.picking_bin.is_not(None),
+        )
+    ).all()
+
+    restored_rows: list[dict] = []
+    for h in histories:
+        if h.sku_id in sku_in_csv:
+            continue
+        restored_rows.append({
+            "상품코드":       h.sku_id,
+            "센터상품명":     h.sku_id,
+            "센터":           h.center_cd or "GGH1",
+            "지번":           h.picking_bin,
+            "존":             h.zone or "",
+            "피킹가능":       "피킹가능",
+            "가용수량":       0,
+            "입수":           1,
+            "박스수":         0,
+            "박스잔량":       0,
+            "센터 판매마감일": "",
+            "판매마감일수":   999,
+            "유통가능일수":   999,
+            "입고일자":       str(h.last_seen_date) if h.last_seen_date else "",
+        })
+
+    if not restored_rows:
+        return picking_df
+
+    restored_df = pl.DataFrame(restored_rows)
+    return pl.concat([picking_df, restored_df], how="diagonal")
+
+
 def detect_unknown_zones(
     picking_df: pl.DataFrame,
     replenish_df: pl.DataFrame,

@@ -2,14 +2,47 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel
+from sqlmodel import Session
 
+from app.core.config import get_config
 from app.core.database import DB_PATH
+from app.core.dependencies import get_session
 
 BACKUP_PATH = DB_PATH.parent / "replenish_backup.db"
 
 router = APIRouter()
+
+
+class PinVerifyRequest(BaseModel):
+    pin: str
+
+
+@router.post("/verify-pin")
+def verify_pin(body: PinVerifyRequest, session: Session = Depends(get_session)):
+    """PIN 검증. 빈 admin_pin 설정이면 항상 통과."""
+    try:
+        stored_pin = get_config("admin_pin", session) or ""
+    except KeyError:
+        stored_pin = ""
+
+    if not stored_pin:
+        return {"ok": True, "message": "PIN 미설정"}
+
+    if body.pin != stored_pin:
+        return JSONResponse(
+            status_code=401,
+            content={
+                "ok": False,
+                "code": "INVALID_PIN",
+                "message": "PIN이 올바르지 않습니다.",
+                "detail": "",
+            },
+        )
+
+    return {"ok": True}
 
 
 @router.get("/db-export")

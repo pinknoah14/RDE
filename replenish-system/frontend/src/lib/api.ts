@@ -159,4 +159,29 @@ export const api = {
   // DB 관리
   exportDb: () => fetch(`${BASE}/admin/db-export`),
   importDb: (file: File) => upload<{ message: string }>("/admin/db-import", file),
+
+  // PIN 인증
+  verifyPin: (pin: string) =>
+    request<{ ok: boolean; message?: string }>("/admin/verify-pin", {
+      method: "POST",
+      body: JSON.stringify({ pin }),
+    }),
+
+  // 긴급 웨이브
+  createUrgentWaveFromDashboard: (body: {
+    sku_ids?: string[];
+    auto_confirm?: boolean;
+    auto_send?: boolean;
+    min_risk_level?: "CRITICAL" | "HIGH";
+  }) =>
+    request<{
+      wave_id: number;
+      wave_name: string;
+      candidates: number;
+      confirmed: boolean;
+      tasks_created: number;
+    }>("/waves/urgent-from-dashboard", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };

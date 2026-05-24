@@ -1,8 +1,16 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import init_db
+from app.core.exceptions import (
+    RDEException,
+    generic_exception_handler,
+    http_exception_handler,
+    rde_exception_handler,
+    validation_exception_handler,
+)
 from app.core.logging_config import setup_logging, get_logger
 from app.api import (
     upload,
@@ -32,7 +40,12 @@ async def lifespan(app: FastAPI):
     logger.info("RDE 시스템 종료")
 
 
-app = FastAPI(title="보충 운영 보조 시스템", version="2.2.0", lifespan=lifespan)
+app = FastAPI(title="보충 운영 보조 시스템", version="2.3.0", lifespan=lifespan)
+
+app.add_exception_handler(RDEException, rde_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
 
 app.add_middleware(
     CORSMiddleware,

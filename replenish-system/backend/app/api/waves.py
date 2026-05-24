@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.dependencies import get_session
+from app.core.exceptions import RDEException
 from app.core.logging_config import get_logger
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation
 from app.models.wave import Wave
@@ -37,6 +38,14 @@ class CandidatePatch(BaseModel):
 
 class AssignRequest(BaseModel):
     worker_id: int
+
+
+class UrgentWaveRequest(BaseModel):
+    sku_ids: list[str] | None = None
+    center_cd: str = "GGH1"
+    auto_confirm: bool = True
+    auto_send: bool = False
+    min_risk_level: str = "HIGH"   # CRITICAL | HIGH 이상
 
 
 @router.post("")
@@ -116,7 +125,12 @@ def list_waves(session: Session = Depends(get_session)) -> Any:
 def get_wave(wave_id: int, session: Session = Depends(get_session)) -> Any:
     wave = session.get(Wave, wave_id)
     if not wave:
-        raise HTTPException(status_code=404, detail="웨이브 없음")
+        raise RDEException(
+            code="WAVE_NOT_FOUND",
+            message="웨이브를 찾을 수 없습니다.",
+            detail=f"wave_id={wave_id}",
+            status_code=404,
+        )
     return wave
 
 
@@ -201,15 +215,20 @@ def assign_candidate(
     return {"candidate_id": candidate_id, "worker_id": body.worker_id}
 
 
-@router.post("/{wave_id}/confirm")
-def confirm_wave(
+def _confirm_wave_internal(
     wave_id: int,
-    confirmed_by: str = Query(default="관리자"),
-    session: Session = Depends(get_session),
-) -> Any:
+    session: Session,
+    confirmed_by: str = "관리자",
+) -> dict:
+    """웨이브 확정 내부 로직 — 긴급 웨이브 등에서 재사용."""
     wave = session.get(Wave, wave_id)
     if not wave:
-        raise HTTPException(status_code=404, detail="웨이브 없음")
+        raise RDEException(
+            code="WAVE_NOT_FOUND",
+            message="웨이브를 찾을 수 없습니다.",
+            detail=f"wave_id={wave_id}",
+            status_code=404,
+        )
 
     candidates = session.exec(
         select(ReplenishCandidate).where(
@@ -218,7 +237,12 @@ def confirm_wave(
         )
     ).all()
     if not candidates:
-        raise HTTPException(status_code=400, detail="승인된 후보 없음")
+        raise RDEException(
+            code="NO_APPROVED_CANDIDATES",
+            message="승인된 후보가 없습니다.",
+            detail=f"wave_id={wave_id}",
+            status_code=400,
+        )
 
     zone_cfg = {z.zone_prefix: z for z in session.exec(select(ZoneConfig)).all()}
 
@@ -244,7 +268,7 @@ def confirm_wave(
             task_status="READY",
         )
         session.add(task)
-        session.flush()  # task_id 확보
+        session.flush()
 
         bins = json.loads(c.matched_bins_json or "[]")
         for seq, b in enumerate(bins, 1):
@@ -270,5 +294,82 @@ def confirm_wave(
     session.commit()
     logger.info("웨이브 확정", wave_id=wave_id, tasks_created=tasks_created)
     return {"wave_id": wave_id, "tasks_created": tasks_created}
+
+
+@router.post("/{wave_id}/confirm")
+def confirm_wave(
+    wave_id: int,
+    confirmed_by: str = Query(default="관리자"),
+    session: Session = Depends(get_session),
+) -> Any:
+    return _confirm_wave_internal(wave_id, session, confirmed_by=confirmed_by)
+
+
+@router.post("/urgent-from-dashboard", status_code=201)
+def create_urgent_wave_from_dashboard(
+    body: UrgentWaveRequest,
+    session: Session = Depends(get_session),
+) -> Any:
+    """대시보드 미할당/CRITICAL SKU → 즉시 긴급 웨이브 생성.
+
+    흐름:
+      1. URGENT 웨이브 생성
+      2. run_algorithm으로 후보 부여
+      3. risk_level/sku_ids 필터 후 나머지 삭제
+      4. auto_confirm=True 면 APPROVED 처리 + 확정
+    """
+    wave = Wave(
+        wave_name=f"긴급웨이브_{datetime.now().strftime('%m%d_%H%M')}",
+        wave_type="URGENT",
+        wave_status="DRAFT",
+        target_sku_count=40,
+        created_by="관리자",
+    )
+    session.add(wave)
+    session.commit()
+    session.refresh(wave)
+    logger.info("긴급 웨이브 생성", wave_id=wave.wave_id)
+
+    algo = run_algorithm(body.center_cd, wave.wave_id, session)
+
+    risk_keep = {"CRITICAL"} if body.min_risk_level == "CRITICAL" else {"CRITICAL", "HIGH"}
+    candidates = session.exec(
+        select(ReplenishCandidate).where(ReplenishCandidate.wave_id == wave.wave_id)
+    ).all()
+
+    kept_count = 0
+    for c in candidates:
+        if c.risk_level not in risk_keep:
+            session.delete(c)
+            continue
+        if body.sku_ids and c.sku_id not in body.sku_ids:
+            session.delete(c)
+            continue
+        if body.auto_confirm:
+            c.candidate_status = "APPROVED"
+        kept_count += 1
+    session.commit()
+
+    confirmed = False
+    tasks_created = 0
+    if body.auto_confirm and kept_count > 0:
+        result = _confirm_wave_internal(wave.wave_id, session)
+        tasks_created = result["tasks_created"]
+        confirmed = True
+
+    session.refresh(wave)
+
+    return {
+        "wave_id": wave.wave_id,
+        "wave_name": wave.wave_name,
+        "candidates": kept_count,
+        "confirmed": confirmed,
+        "tasks_created": tasks_created,
+        "algorithm": {
+            "total": algo.total_candidates,
+            "critical": algo.critical_count,
+            "high": algo.high_count,
+        },
+    }
 
 

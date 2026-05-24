@@ -70,7 +70,11 @@ def build_wave_messages(wave_id: int, session: Session) -> dict[str, list]:
 
 
 def send_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
-    """Slack으로 웨이브 메시지 전송. bot_token 미설정 시 queue에만 저장."""
+    """Slack으로 웨이브 메시지 전송 (v2.0 현장 형식).
+
+    bot_token 미설정 시 queue에만 저장.
+    v2.3: build_wave_messages_v2 (text 라인 형식) 사용. 배치 그룹 절단 방지 포함.
+    """
     from app.core.config import get_config
 
     try:
@@ -78,42 +82,43 @@ def send_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
     except KeyError:
         bot_token = ""
 
-    channel_blocks = build_wave_messages(wave_id, session)
+    channel_messages = build_wave_messages_v2(wave_id, session)
     results: dict[str, Any] = {"sent": [], "queued": [], "failed": []}
 
-    for channel, blocks in channel_blocks.items():
-        queue_entry = ReplenishTaskQueue(
-            wave_id=wave_id,
-            slack_channel=channel,
-            message_text=json.dumps(blocks, ensure_ascii=False)[:4000],
-            blocks_json=json.dumps(blocks, ensure_ascii=False),
-        )
+    for channel, messages in channel_messages.items():
+        for msg_idx, text in enumerate(messages):
+            queue_entry = ReplenishTaskQueue(
+                wave_id=wave_id,
+                slack_channel=channel,
+                message_text=text[:4000],
+                blocks_json=None,
+            )
 
-        if bot_token:
-            try:
-                from slack_sdk import WebClient
-                client = WebClient(token=bot_token)
-                resp = client.chat_postMessage(
-                    channel=channel,
-                    blocks=blocks,
-                    text=f"보충 웨이브 #{wave_id}",
-                )
-                queue_entry.queue_status = "SENT"
-                queue_entry.slack_ts = resp.get("ts")
-                from datetime import datetime
-                queue_entry.sent_at = datetime.utcnow()
-                results["sent"].append(channel)
-                logger.info("Slack 전송", wave_id=wave_id, channel=channel, ts=resp.get("ts"))
-            except Exception as exc:
-                queue_entry.queue_status = "FAILED"
-                queue_entry.error_message = str(exc)[:500]
-                results["failed"].append({"channel": channel, "error": str(exc)})
-                logger.error("Slack 전송 실패", wave_id=wave_id, channel=channel, error=str(exc))
-        else:
-            queue_entry.queue_status = "WAITING"
-            results["queued"].append(channel)
+            if bot_token:
+                try:
+                    from slack_sdk import WebClient
+                    client = WebClient(token=bot_token)
+                    resp = client.chat_postMessage(
+                        channel=channel,
+                        text=text,
+                    )
+                    queue_entry.queue_status = "SENT"
+                    queue_entry.slack_ts = resp.get("ts")
+                    from datetime import datetime
+                    queue_entry.sent_at = datetime.utcnow()
+                    results["sent"].append(channel)
+                    logger.info("Slack 전송", wave_id=wave_id, channel=channel, ts=resp.get("ts"))
+                except Exception as exc:
+                    queue_entry.queue_status = "FAILED"
+                    queue_entry.error_message = str(exc)[:500]
+                    results["failed"].append({"channel": channel, "error": str(exc)})
+                    logger.error("Slack 전송 실패", wave_id=wave_id, channel=channel, error=str(exc))
+            else:
+                queue_entry.queue_status = "WAITING"
+                if msg_idx == 0:
+                    results["queued"].append(channel)
 
-        session.add(queue_entry)
+            session.add(queue_entry)
 
     session.commit()
     return results

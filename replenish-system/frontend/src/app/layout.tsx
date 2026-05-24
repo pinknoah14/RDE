@@ -3,6 +3,7 @@ import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Toaster } from "@/components/ui/toaster";
+import { PinGate } from "@/components/auth/PinGate";
 
 const notoSansKr = Noto_Sans_KR({
   subsets: ["latin"],
@@ -12,19 +13,21 @@ const notoSansKr = Noto_Sans_KR({
 
 export const metadata: Metadata = {
   title: "Kurly WMS — 보충 운영",
-  description: "창고 보충 운영 관리 시스템 v1.8",
+  description: "창고 보충 운영 관리 시스템 v2.3",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className={notoSansKr.className}>
       <body className="flex h-screen overflow-hidden bg-background antialiased">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1440px]">
-            {children}
-          </div>
-        </main>
+        <PinGate>
+          <Sidebar />
+          <main className="flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-[1440px]">
+              {children}
+            </div>
+          </main>
+        </PinGate>
         <Toaster />
       </body>
     </html>
