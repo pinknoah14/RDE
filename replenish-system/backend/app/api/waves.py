@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.dependencies import get_session
+from app.core.logging_config import get_logger
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation
 from app.models.wave import Wave
 from app.models.zone import ZoneConfig
@@ -16,6 +17,7 @@ from app.services.state_machine import InvalidTransitionError, transition_candid
 from app.services.wave_builder import calculate_prestock_cutoff
 
 router = APIRouter()
+logger = get_logger("wave")
 
 
 class WaveCreateRequest(BaseModel):
@@ -55,6 +57,7 @@ def create_wave(body: WaveCreateRequest, session: Session = Depends(get_session)
     session.add(wave)
     session.commit()
     session.refresh(wave)
+    logger.info("웨이브 생성", wave_id=wave.wave_id, wave_type=body.wave_type, max_candidates=max_candidates)
 
     algo = run_algorithm(body.center_cd, wave.wave_id, session)
 
@@ -265,6 +268,7 @@ def confirm_wave(
     wave.wave_status = "CONFIRMED"
     wave.confirmed_at = datetime.utcnow()
     session.commit()
+    logger.info("웨이브 확정", wave_id=wave_id, tasks_created=tasks_created)
     return {"wave_id": wave_id, "tasks_created": tasks_created}
 
 

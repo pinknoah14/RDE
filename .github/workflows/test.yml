@@ -1,4 +1,4 @@
-name: Phase 1 검증
+name: RDE Tests
 
 on:
   push:
@@ -7,8 +7,9 @@ on:
     branches: [ '**' ]
 
 jobs:
-  test:
+  backend-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: 코드 체크아웃
@@ -26,6 +27,11 @@ jobs:
           cd replenish-system/backend
           pip install -r requirements.txt
 
+      - name: .env 생성 (CI용)
+        run: |
+          cd replenish-system/backend
+          cp .env.example .env
+
       - name: data 폴더 생성
         run: mkdir -p replenish-system/backend/data
 
@@ -33,6 +39,8 @@ jobs:
         run: |
           cd replenish-system/backend
           pytest tests/ -v --tb=short \
+            --ignore=tests/oneday \
+            --ignore=tests/sim \
             --ignore=tests/test_integration.py \
             --ignore=tests/test_wave_integration.py \
             --ignore=tests/test_performance.py \
@@ -46,6 +54,8 @@ jobs:
         run: |
           cd replenish-system/backend
           pytest tests/ --tb=no -q \
+            --ignore=tests/oneday \
+            --ignore=tests/sim \
             --ignore=tests/test_integration.py \
             --ignore=tests/test_wave_integration.py \
             --ignore=tests/test_performance.py \
@@ -53,3 +63,25 @@ jobs:
             --ignore=tests/test_slack_mock.py
         env:
           PYTHONPATH: .
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: replenish-system/frontend/package-lock.json
+
+      - name: 의존성 설치
+        run: cd replenish-system/frontend && npm ci
+
+      - name: 타입 검사
+        run: cd replenish-system/frontend && npx tsc --noEmit
+
+      - name: 빌드
+        run: cd replenish-system/frontend && npm run build

@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import init_db
+from app.core.logging_config import setup_logging, get_logger
 from app.api import (
     upload,
     waves,
@@ -18,13 +19,20 @@ from app.api import (
 )
 
 
+logger = get_logger("main")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging()
+    logger.info("RDE 시스템 시작", version=app.version)
     init_db()
+    logger.info("DB 초기화 완료")
     yield
+    logger.info("RDE 시스템 종료")
 
 
-app = FastAPI(title="보충 운영 보조 시스템", version="2.1.0", lifespan=lifespan)
+app = FastAPI(title="보충 운영 보조 시스템", version="2.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

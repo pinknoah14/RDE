@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from sqlmodel import Session, select
 
 from app.core.dependencies import get_session
+from app.core.logging_config import get_logger
 from app.models.bin_master import BinMaster
 from app.models.inventory import ReplenishBinSnapshot
 from app.models.upload import UploadSession
@@ -21,6 +22,7 @@ from app.services.sales_parser import parse_outbound_csv, parse_pivot_csv
 from app.services.sales_service import upsert_daily_sales, update_all_sales_summaries
 
 router = APIRouter()
+logger = get_logger("upload")
 
 
 def save_replenish_snapshot(
@@ -56,6 +58,7 @@ async def upload_inventory(
     try:
         df = load_inventory_csv_from_bytes(content)
     except Exception as e:
+        logger.error("재고 CSV 파싱 실패", file=file.filename, error=str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
     classified = classify_inventory(df, session)
@@ -80,6 +83,15 @@ async def upload_inventory(
     session.refresh(upload_record)
 
     save_replenish_snapshot(replenish_df, upload_record.upload_id, center_cd, session)
+
+    logger.info(
+        "재고 CSV 업로드",
+        upload_id=upload_record.upload_id,
+        rows=len(df),
+        picking=len(picking_df),
+        replenish=len(replenish_df),
+        unknown_zones=unknown_zones,
+    )
 
     return {
         "upload_id": upload_record.upload_id,

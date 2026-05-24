@@ -4,12 +4,14 @@ from typing import Any
 
 from sqlmodel import Session, select
 
+from app.core.logging_config import get_logger
 from app.models.task import ReplenishConfirmedTask, ReplenishTaskLocation, ReplenishTaskQueue
 from app.models.worker import Worker
 from app.models.wave import Wave
 from app.models.zone import ZoneConfig
 
 
+logger = get_logger("slack")
 PROXIMITY_ICON = {4: "🟢", 3: "🟠", 2: "🟡", 1: "⚪"}
 
 
@@ -101,10 +103,12 @@ def send_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
                 from datetime import datetime
                 queue_entry.sent_at = datetime.utcnow()
                 results["sent"].append(channel)
+                logger.info("Slack 전송", wave_id=wave_id, channel=channel, ts=resp.get("ts"))
             except Exception as exc:
                 queue_entry.queue_status = "FAILED"
                 queue_entry.error_message = str(exc)[:500]
                 results["failed"].append({"channel": channel, "error": str(exc)})
+                logger.error("Slack 전송 실패", wave_id=wave_id, channel=channel, error=str(exc))
         else:
             queue_entry.queue_status = "WAITING"
             results["queued"].append(channel)
@@ -354,7 +358,9 @@ def delete_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
                 client = WebClient(token=bot_token)
                 client.chat_delete(channel=q.slack_channel, ts=q.slack_ts)
                 deleted.append(q.slack_channel)
+                logger.info("Slack 메시지 삭제", wave_id=wave_id, channel=q.slack_channel, ts=q.slack_ts)
             except Exception as exc:
                 failed.append({"channel": q.slack_channel, "error": str(exc)})
+                logger.error("Slack 삭제 실패", wave_id=wave_id, channel=q.slack_channel, error=str(exc))
 
     return {"deleted": deleted, "failed": failed}

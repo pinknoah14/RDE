@@ -8,6 +8,7 @@ from datetime import datetime, date as date_type
 from sqlmodel import Session, select
 
 from app.core.config import get_config, get_config_list
+from app.core.logging_config import get_logger
 from app.models.inventory import ReplenishBinSnapshot
 from app.models.sku import SkuPickingHistory, SkuSalesSummary, DailySalesHistory
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask
@@ -41,8 +42,12 @@ class AlgorithmResult:
     execution_ms: int = 0
 
 
+logger = get_logger("algorithm")
+
+
 def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmResult:
     start = datetime.utcnow()
+    logger.info("알고리즘 실행 시작", center_cd=center_cd, wave_id=wave_id)
 
     zone_cfg = {z.zone_prefix: z for z in session.exec(select(ZoneConfig)).all()}
     aisle_anchors = {
@@ -265,6 +270,14 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
     result.new_skus = list(new_skus_seen)
     result.multi_bin_skus = list(multi_bin_seen)
     result.execution_ms = int((datetime.utcnow() - start).total_seconds() * 1000)
+    logger.info(
+        "알고리즘 실행 완료",
+        wave_id=wave_id,
+        total=result.total_candidates,
+        critical=result.critical_count,
+        high=result.high_count,
+        execution_ms=result.execution_ms,
+    )
     return result
 
 
