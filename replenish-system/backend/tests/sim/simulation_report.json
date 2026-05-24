@@ -1,0 +1,198 @@
+{
+  "timestamp": "2026-05-24",
+  "steps": [
+    {
+      "step": "업로드/재고",
+      "ok": true,
+      "result": "재고 CSV 업로드 성공 (1,071행, 0.5s)",
+      "detail": ""
+    },
+    {
+      "step": "업로드/피킹존",
+      "ok": true,
+      "result": "피킹존 503행 분류",
+      "detail": ""
+    },
+    {
+      "step": "업로드/보충존",
+      "ok": true,
+      "result": "보충존 568행 분류",
+      "detail": ""
+    },
+    {
+      "step": "업로드/다중피킹",
+      "ok": true,
+      "result": "다중 피킹지번 SKU: 3개 (시나리오 3개 예상)",
+      "detail": ""
+    },
+    {
+      "step": "업로드/출고",
+      "ok": true,
+      "result": "출고 CSV 업로드 성공 (3,500행, 2.7s)",
+      "detail": ""
+    },
+    {
+      "step": "업로드/피벗",
+      "ok": true,
+      "result": "피벗 CSV 업로드 성공 (14,000행, 7.7s)",
+      "detail": ""
+    },
+    {
+      "step": "웨이브/생성",
+      "ok": true,
+      "result": "웨이브 생성 성공 (0.7s)",
+      "detail": ""
+    },
+    {
+      "step": "알고리즘/후보수",
+      "ok": true,
+      "result": "추천 후보 422개 생성",
+      "detail": ""
+    },
+    {
+      "step": "알고리즘/CRITICAL",
+      "ok": true,
+      "result": "CRITICAL 11개 (시나리오: 10개 예상)",
+      "detail": "재고 고갈 SKU 10개 포함했는데 CRITICAL 없으면 알고리즘 재검토 필요"
+    },
+    {
+      "step": "알고리즘/성능",
+      "ok": true,
+      "result": "실행 시간 640ms (기준 10초)",
+      "detail": ""
+    },
+    {
+      "step": "품질/정렬",
+      "ok": true,
+      "result": "위험도 내림차순 정렬 확인",
+      "detail": ""
+    },
+    {
+      "step": "품질/matched_bins 구조",
+      "ok": true,
+      "result": "모든 후보에 matched_bins 배열 존재",
+      "detail": ""
+    },
+    {
+      "step": "품질/matched_bins 데이터",
+      "ok": true,
+      "result": "422/422개 후보에 보충지번 있음",
+      "detail": ""
+    },
+    {
+      "step": "품질/FEFO",
+      "ok": true,
+      "result": "FEFO 위반 0건 (전체 422개 후보 검사)",
+      "detail": ""
+    },
+    {
+      "step": "품질/today_sales",
+      "ok": true,
+      "result": "오늘 판매량 > 0인 후보: 386/422개",
+      "detail": ""
+    },
+    {
+      "step": "품질/proximity_score 범위",
+      "ok": true,
+      "result": "모든 proximity_score 1~4 범위",
+      "detail": ""
+    },
+    {
+      "step": "품질/섹션분류",
+      "ok": true,
+      "result": "MAIN 422개 / SUB 0개",
+      "detail": ""
+    },
+    {
+      "step": "검수/승인",
+      "ok": true,
+      "result": "337개 승인 완료",
+      "detail": ""
+    },
+    {
+      "step": "검수/거절",
+      "ok": true,
+      "result": "3개 거절 (사유 포함)",
+      "detail": ""
+    },
+    {
+      "step": "검수/섹션이동",
+      "ok": true,
+      "result": "MAIN → SUB 이동 성공",
+      "detail": ""
+    },
+    {
+      "step": "확정/API",
+      "ok": true,
+      "result": "웨이브 확정 성공 (0.2s)",
+      "detail": ""
+    },
+    {
+      "step": "확정/태스크",
+      "ok": true,
+      "result": "태스크 337개 생성",
+      "detail": ""
+    },
+    {
+      "step": "확정/DB 태스크",
+      "ok": true,
+      "result": "DB ReplenishConfirmedTask 337건",
+      "detail": ""
+    },
+    {
+      "step": "확정/DB 지번",
+      "ok": true,
+      "result": "DB ReplenishTaskLocation 373건 (태스크당 ≥1개)",
+      "detail": ""
+    },
+    {
+      "step": "확정/Location 완전성",
+      "ok": true,
+      "result": "모든 태스크에 Location ≥ 1개",
+      "detail": ""
+    },
+    {
+      "step": "Slack/채널분류",
+      "ok": true,
+      "result": "1개 채널로 분류",
+      "detail": ""
+    },
+    {
+      "step": "Slack/R존/지번",
+      "ok": true,
+      "result": "보충지번 포함",
+      "detail": ""
+    },
+    {
+      "step": "Slack/R존/수량",
+      "ok": true,
+      "result": "수량 포함",
+      "detail": ""
+    },
+    {
+      "step": "Slack/R존/아이콘",
+      "ok": true,
+      "result": "proximity 아이콘 포함",
+      "detail": ""
+    },
+    {
+      "step": "대시보드/API",
+      "ok": true,
+      "result": "대시보드 API 정상",
+      "detail": ""
+    }
+  ],
+  "issues": [],
+  "summary": {
+    "total_steps": 30,
+    "passed": 30,
+    "failed": 0,
+    "issues": [],
+    "candidates": 422,
+    "critical": 11,
+    "tasks_created": 337,
+    "channels": [
+      "R존"
+    ]
+  }
+}
