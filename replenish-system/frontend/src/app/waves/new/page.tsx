@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
-import type { DashboardSummary } from "@/types";
+import type { DashboardSummary, PrestockCutoff } from "@/types";
 
 export default function WaveNewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [cutoff, setCutoff] = useState<PrestockCutoff | null>(null);
   const [form, setForm] = useState({
     wave_type: "REGULAR",
     min_risk_score: 40,
@@ -25,7 +26,8 @@ export default function WaveNewPage() {
     Promise.all([
       api.getSystemConfig(),
       api.getDashboard().catch(() => null),
-    ]).then(([configs, dash]) => {
+      api.getPrestockCutoff().catch(() => null),
+    ]).then(([configs, dash, ct]) => {
       const get = (key: string) => configs.find((c) => c.config_key === key)?.config_value;
       setForm((p) => ({
         ...p,
@@ -34,16 +36,19 @@ export default function WaveNewPage() {
         target_days:    parseFloat(get("wave_target_days")   ?? "") || p.target_days,
       }));
       setSummary(dash);
+      setCutoff(ct);
     }).finally(() => setConfigLoading(false));
   }, []);
 
   const handleCreate = async () => {
     setLoading(true);
     try {
+      const isPrestock = form.wave_type === "PRESTOCK";
       const res = await api.createWave({
         wave_type: form.wave_type,
         min_risk_score: form.min_risk_score,
-        max_candidates: form.max_candidates,
+        // PRESTOCK: max_candidates 미전송 → 백엔드에서 동적 컷오프 적용
+        ...(isPrestock ? {} : { max_candidates: form.max_candidates }),
         target_days: form.target_days,
         urgent_only: form.urgent_only,
       });
@@ -90,15 +95,27 @@ export default function WaveNewPage() {
           <div>
             <label className="mb-2 block text-sm font-medium">웨이브 유형</label>
             <div className="flex gap-4 text-sm">
-              {(["REGULAR", "URGENT"] as const).map((t) => (
+              {(["REGULAR", "URGENT", "PRESTOCK"] as const).map((t) => (
                 <label key={t} className="flex cursor-pointer items-center gap-1.5">
                   <input type="radio" name="type" checked={form.wave_type === t}
                     onChange={() => setForm((p) => ({ ...p, wave_type: t }))} />
-                  {t === "REGULAR" ? "정기" : "긴급"}
+                  {t === "REGULAR" ? "정기" : t === "URGENT" ? "긴급" : "선보충"}
                 </label>
               ))}
             </div>
           </div>
+
+          {form.wave_type === "PRESTOCK" && cutoff && (
+            <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm">
+              <p className="mb-1.5 font-medium text-orange-900">⏰ 선보충 자동 컷오프</p>
+              <div className="space-y-0.5 text-xs text-orange-800">
+                <p>활성 작업자: <strong>{cutoff.active_workers}</strong>명 (지게차 기준)</p>
+                <p>시간당 처리(UPH): <strong>{cutoff.uph}</strong>개</p>
+                <p>가용 시간: <strong>{cutoff.minutes}</strong>분 (23:20~01:00)</p>
+                <p className="mt-1 font-bold text-orange-900">최대 처리량: {cutoff.max_sku}개</p>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="mb-2 block text-sm font-medium">
@@ -123,10 +140,16 @@ export default function WaveNewPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">최대 SKU 수</label>
+            <label className="mb-2 block text-sm font-medium">
+              최대 SKU 수
+              {form.wave_type === "PRESTOCK" && (
+                <span className="ml-2 text-xs text-orange-600">(선보충은 자동 컷오프 적용)</span>
+              )}
+            </label>
             <input type="number" min={1} max={200} value={form.max_candidates}
               onChange={(e) => setForm((p) => ({ ...p, max_candidates: +e.target.value }))}
-              className="w-28 rounded-md border px-3 py-1.5 text-sm" />
+              disabled={form.wave_type === "PRESTOCK"}
+              className="w-28 rounded-md border px-3 py-1.5 text-sm disabled:bg-gray-100 disabled:text-muted-foreground" />
           </div>
 
           <div className="flex items-center gap-2">

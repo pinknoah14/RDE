@@ -25,6 +25,7 @@ SYSTEM_CONFIG_SEED = [
     # SLACK
     ("slack_bot_token",          "",                       "SECRET",  "SLACK",     "Slack 봇 토큰",               None),
     ("slack_workspace",          "",                       "TEXT",    "SLACK",     "워크스페이스명",              None),
+    ("slack_items_per_message",  "6",                      "INTEGER", "SLACK",     "메시지당 SKU 수 (5~6 권장)",   None),
     # WAVE
     ("wave_default_sku_count",   "40",                     "INTEGER", "WAVE",      "기본 추천 SKU 수",            None),
     ("wave_default_min_score",   "40",                     "INTEGER", "WAVE",      "기본 최소 위험도",             None),
@@ -36,6 +37,8 @@ SYSTEM_CONFIG_SEED = [
     ("target_days_closing",      "0.5",                    "REAL",    "WAVE",      "마감 목표 보유 일수",          None),
     ("new_sku_initial_boxes",    "3",                      "INTEGER", "WAVE",      "신규 상품 최초 보충 박스",     None),
     ("unclaimed_alert_minutes",  "30",                     "INTEGER", "WAVE",      "미선점 경고 기준(분)",          None),
+    ("prestock_uph",             "12",                     "INTEGER", "WAVE",      "선보충 UPH (시간당 처리 SKU 수)", None),
+    ("prestock_minutes",         "100",                    "INTEGER", "WAVE",      "선보충 가용 시간(분)",          None),
     # ALGORITHM
     ("operating_hours_per_day",  "16",                     "INTEGER", "ALGORITHM", "일 운영 시간(h)",              None),
     ("score_boundary_hours",     "0,1,2,4,6,8",            "CSV_INT", "ALGORITHM", "위험도 구간 경계(시간)",       None),
@@ -65,6 +68,7 @@ SYSTEM_CONFIG_SEED = [
     ("weight_replenishing_now",           "-5",  "INTEGER", "ALGORITHM", "이미 보충 중 패널티",                  None),
     ("max_replen_bins",                   "3",   "INTEGER", "ALGORITHM", "보충지번 최대 개수",                   None),
     ("target_days_default",               "1.5", "REAL",    "ALGORITHM", "기본 목표 보유 일수",                  None),
+    ("batch_tag_min_group",               "2",   "INTEGER", "ALGORITHM", "배치 태그 최소 공유 SKU 수",            None),
     # PICKING
     ("confidence_high_days",     "3",                      "INTEGER", "PICKING",   "HIGH 신뢰도 기준일",           None),
     ("confidence_medium_days",   "14",                     "INTEGER", "PICKING",   "MEDIUM 신뢰도 기준일",         None),

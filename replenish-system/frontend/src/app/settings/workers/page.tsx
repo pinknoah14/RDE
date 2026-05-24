@@ -7,7 +7,17 @@ import { api } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import type { Worker, WorkerInput } from "@/types";
 
-const EMPTY: WorkerInput = { worker_name: "", worker_type: "FORKLIFT", is_active: true, is_sub_worker: false, max_tasks: 3 };
+const EMPTY: WorkerInput = {
+  worker_name: "",
+  worker_type: "FORKLIFT",
+  work_type: "FORKLIFT",
+  skill_level: "NORMAL",
+  is_active: true,
+  is_sub_worker: false,
+  max_tasks: 3,
+};
+
+const SKILL_LABEL: Record<string, string> = { EXPERT: "숙련", NORMAL: "일반", JUNIOR: "미숙련" };
 
 export default function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -25,6 +35,24 @@ export default function WorkersPage() {
       toast({ title: "저장 완료" });
       setEditing(null); setForm(EMPTY); load();
     } catch (e) { toast({ title: "오류", description: (e as Error).message, variant: "destructive" }); }
+  };
+
+  const updateSkill = async (id: number, skill_level: "EXPERT" | "NORMAL" | "JUNIOR") => {
+    try {
+      await api.updateWorker(id, { skill_level });
+      load();
+    } catch (e) {
+      toast({ title: "오류", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
+  const updateWorkType = async (id: number, work_type: "FORKLIFT" | "WALKING") => {
+    try {
+      await api.updateWorkerWorkType(id, work_type);
+      load();
+    } catch (e) {
+      toast({ title: "오류", description: (e as Error).message, variant: "destructive" });
+    }
   };
 
   const handleDailyReset = async () => {
@@ -57,7 +85,9 @@ export default function WorkersPage() {
             <thead className="bg-gray-50 text-xs font-medium text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 text-left">이름</th>
-                <th className="px-4 py-3 text-left">유형</th>
+                <th className="px-4 py-3 text-left">보유 장비</th>
+                <th className="px-4 py-3 text-left">숙련도</th>
+                <th className="px-4 py-3 text-left">당일 작업</th>
                 <th className="px-4 py-3 text-left">최대 태스크</th>
                 <th className="px-4 py-3 text-center">서브</th>
                 <th className="px-4 py-3 text-center">활성</th>
@@ -69,6 +99,8 @@ export default function WorkersPage() {
                 <tr className="bg-purple-50">
                   <td className="px-4 py-2"><input value={form.worker_name} onChange={(e) => setForm((p) => ({ ...p, worker_name: e.target.value }))} placeholder="이름" className="w-full rounded border px-2 py-1 text-sm" /></td>
                   <td className="px-4 py-2"><select value={form.worker_type} onChange={(e) => setForm((p) => ({ ...p, worker_type: e.target.value as "FORKLIFT" | "WALKING" }))} className="rounded border px-2 py-1 text-sm"><option value="FORKLIFT">지게차</option><option value="WALKING">도보</option></select></td>
+                  <td className="px-4 py-2"><select value={form.skill_level ?? "NORMAL"} onChange={(e) => setForm((p) => ({ ...p, skill_level: e.target.value as "EXPERT" | "NORMAL" | "JUNIOR" }))} className="rounded border px-2 py-1 text-sm"><option value="EXPERT">숙련</option><option value="NORMAL">일반</option><option value="JUNIOR">미숙련</option></select></td>
+                  <td className="px-4 py-2"><select value={form.work_type ?? form.worker_type} onChange={(e) => setForm((p) => ({ ...p, work_type: e.target.value as "FORKLIFT" | "WALKING" }))} className="rounded border px-2 py-1 text-sm"><option value="FORKLIFT">지게차</option><option value="WALKING">도보</option></select></td>
                   <td className="px-4 py-2"><input type="number" min={1} value={form.max_tasks} onChange={(e) => setForm((p) => ({ ...p, max_tasks: +e.target.value }))} className="w-16 rounded border px-2 py-1 text-sm" /></td>
                   <td className="px-4 py-2 text-center"><input type="checkbox" checked={form.is_sub_worker} onChange={(e) => setForm((p) => ({ ...p, is_sub_worker: e.target.checked }))} /></td>
                   <td className="px-4 py-2 text-center"><input type="checkbox" checked={form.is_active} onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))} /></td>
@@ -79,10 +111,33 @@ export default function WorkersPage() {
                 <tr key={w.worker_id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{w.worker_name}</td>
                   <td className="px-4 py-3"><Badge variant="outline">{w.worker_type === "FORKLIFT" ? "지게차" : "도보"}</Badge></td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={w.skill_level}
+                      onChange={(e) => updateSkill(w.worker_id, e.target.value as "EXPERT" | "NORMAL" | "JUNIOR")}
+                      className="rounded border px-2 py-1 text-sm"
+                      disabled={editing !== null}
+                    >
+                      <option value="EXPERT">숙련</option>
+                      <option value="NORMAL">일반</option>
+                      <option value="JUNIOR">미숙련</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={w.work_type}
+                      onChange={(e) => updateWorkType(w.worker_id, e.target.value as "FORKLIFT" | "WALKING")}
+                      className="rounded border px-2 py-1 text-sm"
+                      disabled={editing !== null}
+                    >
+                      <option value="FORKLIFT">지게차</option>
+                      <option value="WALKING">도보</option>
+                    </select>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{w.max_tasks}</td>
                   <td className="px-4 py-3 text-center">{w.is_sub_worker ? "✅" : "—"}</td>
                   <td className="px-4 py-3 text-center">{w.is_active ? "✅" : "❌"}</td>
-                  <td className="px-4 py-3"><button onClick={() => { setEditing(w.worker_id); setForm({ worker_name: w.worker_name, worker_type: w.worker_type, is_active: w.is_active, is_sub_worker: w.is_sub_worker, max_tasks: w.max_tasks }); }} className="text-muted-foreground hover:text-[#5F0080]"><Pencil size={14} /></button></td>
+                  <td className="px-4 py-3"><button onClick={() => { setEditing(w.worker_id); setForm({ worker_name: w.worker_name, worker_type: w.worker_type, work_type: w.work_type, skill_level: w.skill_level, is_active: w.is_active, is_sub_worker: w.is_sub_worker, max_tasks: w.max_tasks }); }} className="text-muted-foreground hover:text-[#5F0080]"><Pencil size={14} /></button></td>
                 </tr>
               ))}
             </tbody>

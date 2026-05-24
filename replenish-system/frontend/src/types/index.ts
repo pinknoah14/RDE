@@ -1,12 +1,19 @@
 export interface Wave {
   wave_id: number;
   wave_name: string;
-  wave_type: "REGULAR" | "URGENT";
+  wave_type: "REGULAR" | "URGENT" | "PRESTOCK";
   wave_status: "DRAFT" | "CONFIRMED" | "SENT" | "COMPLETED" | "CANCELLED";
   created_at: string;
   confirmed_at?: string;
   sent_at?: string;
   target_sku_count: number;
+}
+
+export interface PrestockCutoff {
+  active_workers: number;
+  uph: number;
+  minutes: number;
+  max_sku: number;
 }
 
 export interface MatchedBin {
@@ -40,6 +47,8 @@ export interface Candidate {
   zone: string;
   slack_channel: string;
   matched_bins: MatchedBin[];
+  batch_tag?: string | null;
+  batch_seq?: number | null;
 }
 
 export interface EventItem {
@@ -138,6 +147,8 @@ export interface Worker {
   worker_id: number;
   worker_name: string;
   worker_type: "FORKLIFT" | "WALKING";
+  work_type: "FORKLIFT" | "WALKING";
+  skill_level: "EXPERT" | "NORMAL" | "JUNIOR";
   is_active: boolean;
   is_sub_worker: boolean;
   max_tasks: number;
@@ -146,6 +157,8 @@ export interface Worker {
 export interface WorkerInput {
   worker_name: string;
   worker_type: "FORKLIFT" | "WALKING";
+  work_type?: "FORKLIFT" | "WALKING";
+  skill_level?: "EXPERT" | "NORMAL" | "JUNIOR";
   is_active: boolean;
   is_sub_worker: boolean;
   max_tasks: number;

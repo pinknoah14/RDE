@@ -28,6 +28,10 @@ class ReplenishCandidate(SQLModel, table=True):
     # PENDING / APPROVED / REJECTED / MODIFIED
     modified_qty: Optional[int] = None
     rejected_reason: Optional[str] = None
+    batch_tag: Optional[str] = Field(default=None)
+    # 1순위 보충지번 문자열 — 동일 파렛트 공유 SKU 그룹 식별자 (NULL=단독)
+    batch_seq: Optional[int] = Field(default=None)
+    # 배치 내 처리 순서 (risk_score 기준 1, 2, 3, ...)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: Optional[datetime] = None
 

@@ -13,10 +13,12 @@ router = APIRouter()
 
 class WorkerCreate(BaseModel):
     worker_name: str
-    worker_type: str        # FORKLIFT / WALKING
+    worker_type: str        # FORKLIFT / WALKING (보유 장비)
     zone_access: str        # JSON 배열 문자열
     max_tasks: int = 6
     slack_id: str | None = None
+    skill_level: str = "NORMAL"   # EXPERT / NORMAL / JUNIOR
+    work_type: str | None = None  # 미입력 시 worker_type 사용
 
 
 class WorkerUpdate(BaseModel):
@@ -26,6 +28,12 @@ class WorkerUpdate(BaseModel):
     slack_id: str | None = None
     is_active: bool | None = None
     is_sub_worker: bool | None = None
+    skill_level: str | None = None
+    work_type: str | None = None
+
+
+class WorkTypeUpdate(BaseModel):
+    work_type: str   # FORKLIFT | WALKING
 
 
 @router.get("")
@@ -42,8 +50,28 @@ def create_worker(body: WorkerCreate, session: Session = Depends(get_session)) -
         zone_access=body.zone_access,
         max_tasks=body.max_tasks,
         slack_id=body.slack_id,
+        skill_level=body.skill_level,
+        work_type=body.work_type or body.worker_type,
     )
     session.add(worker)
+    session.commit()
+    session.refresh(worker)
+    return worker
+
+
+@router.patch("/{worker_id}/work-type")
+def update_work_type(
+    worker_id: int,
+    body: WorkTypeUpdate,
+    session: Session = Depends(get_session),
+) -> Any:
+    if body.work_type not in ("FORKLIFT", "WALKING"):
+        raise HTTPException(status_code=400, detail="work_type은 FORKLIFT 또는 WALKING")
+    worker = session.get(Worker, worker_id)
+    if not worker:
+        raise HTTPException(status_code=404, detail="작업자 없음")
+    worker.work_type = body.work_type
+    worker.updated_at = datetime.utcnow()
     session.commit()
     session.refresh(worker)
     return worker

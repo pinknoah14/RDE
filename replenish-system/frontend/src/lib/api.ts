@@ -4,7 +4,7 @@ import type {
   FloorAccessPoint, FloorAccessPointInput,
   SystemConfig, DashboardSummary,
   Worker, WorkerInput, UploadResult, UploadSession, QueueItem, UnknownZone,
-  EventItem, PickingZone,
+  EventItem, PickingZone, PrestockCutoff,
 } from "@/types";
 
 const BASE = "/api/v1";
@@ -37,9 +37,10 @@ export const api = {
   // 웨이브
   getWaves: () => request<Wave[]>("/waves"),
   createWave: (body: WaveCreateRequest) =>
-    request<{ wave_id: number; wave_name: string; algorithm: { total_candidates: number; critical: number; high: number; medium: number; low: number; no_replen_skus: string[]; execution_ms: number } }>(
+    request<{ wave_id: number; wave_name: string; wave_type?: string; max_candidates?: number; prestock_cutoff?: PrestockCutoff | null; algorithm: { total_candidates: number; critical: number; high: number; medium: number; low: number; no_replen_skus: string[]; execution_ms: number } }>(
       "/waves", { method: "POST", body: JSON.stringify(body) }
     ),
+  getPrestockCutoff: () => request<PrestockCutoff>("/waves/cutoff/prestock"),
   getWave: (id: number) => request<Wave>(`/waves/${id}`),
   confirmWave: (id: number, confirmedBy = "관리자") =>
     request<{ wave_id: number; tasks_created: number }>(
@@ -127,6 +128,10 @@ export const api = {
     request<Worker>("/workers", { method: "POST", body: JSON.stringify(body) }),
   updateWorker: (id: number, body: Partial<WorkerInput>) =>
     request<Worker>(`/workers/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  updateWorkerWorkType: (id: number, work_type: "FORKLIFT" | "WALKING") =>
+    request<Worker>(`/workers/${id}/work-type`, {
+      method: "PATCH", body: JSON.stringify({ work_type }),
+    }),
   dailyResetWorkers: () =>
     request<{ reset_count: number }>("/workers/daily-reset", { method: "POST" }),
 

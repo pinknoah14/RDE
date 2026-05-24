@@ -40,9 +40,19 @@ export function CandidateCard({ c, onApprove, onReject, onModifyQty, onMoveSecti
             <span className="block truncate font-medium text-sm">{c.sku_name}</span>
             <span className="text-xs text-muted-foreground">{c.sku_id}</span>
           </div>
-          <Badge className={riskColor(c.risk_level)} variant="outline">
-            {riskLabel(c.risk_level)} {c.risk_score}점
-          </Badge>
+          <div className="flex flex-col items-end gap-1">
+            <Badge className={riskColor(c.risk_level)} variant="outline">
+              {riskLabel(c.risk_level)} {c.risk_score}점
+            </Badge>
+            {c.batch_tag && (
+              <span
+                title={`혼적 파렛트 — ${c.batch_tag} (순서 #${c.batch_seq})`}
+                className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-700"
+              >
+                📦 혼적 #{c.batch_seq}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Bin route: picking → replenish list (FEFO) */}

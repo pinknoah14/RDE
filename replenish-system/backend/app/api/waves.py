@@ -13,13 +13,14 @@ from app.models.zone import ZoneConfig
 from app.services.algorithm import AlgorithmResult, run_algorithm
 from app.services.csv_parser import extract_zone_prefix
 from app.services.state_machine import InvalidTransitionError, transition_candidate
+from app.services.wave_builder import calculate_prestock_cutoff
 
 router = APIRouter()
 
 
 class WaveCreateRequest(BaseModel):
     wave_name: str | None = None
-    wave_type: str = "REGULAR"
+    wave_type: str = "REGULAR"   # REGULAR | URGENT | PRESTOCK
     center_cd: str = "GGH1"
     max_candidates: int | None = None
     urgent_only: bool = False
@@ -38,11 +39,17 @@ class AssignRequest(BaseModel):
 
 @router.post("")
 def create_wave(body: WaveCreateRequest, session: Session = Depends(get_session)) -> Any:
+    max_candidates = body.max_candidates
+    cutoff_info = None
+    if body.wave_type == "PRESTOCK" and max_candidates is None:
+        cutoff_info = calculate_prestock_cutoff(session)
+        max_candidates = cutoff_info["max_sku"]
+
     wave = Wave(
         wave_name=body.wave_name or f"웨이브_{datetime.now().strftime('%m%d_%H%M')}",
         wave_type=body.wave_type,
         wave_status="DRAFT",
-        target_sku_count=body.max_candidates or 40,
+        target_sku_count=max_candidates or 40,
         created_by="관리자",
     )
     session.add(wave)
@@ -50,6 +57,17 @@ def create_wave(body: WaveCreateRequest, session: Session = Depends(get_session)
     session.refresh(wave)
 
     algo = run_algorithm(body.center_cd, wave.wave_id, session)
+
+    # PRESTOCK: 컷오프 초과분 자동 삭제 (risk_score 하위)
+    if body.wave_type == "PRESTOCK" and max_candidates:
+        all_cands = session.exec(
+            select(ReplenishCandidate)
+            .where(ReplenishCandidate.wave_id == wave.wave_id)
+            .order_by(ReplenishCandidate.risk_score.desc())
+        ).all()
+        for c in all_cands[max_candidates:]:
+            session.delete(c)
+        session.commit()
 
     if body.min_risk_score is not None:
         candidates = session.exec(
@@ -65,6 +83,9 @@ def create_wave(body: WaveCreateRequest, session: Session = Depends(get_session)
     return {
         "wave_id": wave.wave_id,
         "wave_name": wave.wave_name,
+        "wave_type": wave.wave_type,
+        "max_candidates": max_candidates,
+        "prestock_cutoff": cutoff_info,
         "algorithm": {
             "total_candidates": algo.total_candidates,
             "critical": algo.critical_count,
@@ -75,6 +96,12 @@ def create_wave(body: WaveCreateRequest, session: Session = Depends(get_session)
             "execution_ms": algo.execution_ms,
         },
     }
+
+
+@router.get("/cutoff/prestock")
+def get_prestock_cutoff(session: Session = Depends(get_session)) -> Any:
+    """선보충 동적 컷오프 산출값 조회 (웨이브 생성 전 미리보기용)."""
+    return calculate_prestock_cutoff(session)
 
 
 @router.get("")

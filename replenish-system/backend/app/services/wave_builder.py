@@ -1,6 +1,7 @@
 import json
 import math
 import re
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, date as date_type
 
@@ -11,6 +12,7 @@ from app.models.inventory import ReplenishBinSnapshot
 from app.models.sku import SkuPickingHistory, SkuSalesSummary, DailySalesHistory
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask
 from app.models.upload import UploadSession
+from app.models.worker import Worker
 from app.models.zone import FloorAccessPoint, ScatteredAisleAnchor, ZoneConfig
 from app.services.csv_parser import extract_zone_prefix
 from app.services.algorithm import (
@@ -252,8 +254,123 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
 
     session.commit()
 
+    # 후처리: 배치 태그 부여 (혼적 파렛트 묶음)
+    try:
+        min_group = int(get_config("batch_tag_min_group", session) or 2)
+    except KeyError:
+        min_group = 2
+    apply_batch_tags_to_wave(wave_id, session, min_group=min_group)
+
     result.no_replen_skus = no_replen
     result.new_skus = list(new_skus_seen)
     result.multi_bin_skus = list(multi_bin_seen)
     result.execution_ms = int((datetime.utcnow() - start).total_seconds() * 1000)
     return result
+
+
+def assign_batch_tags(candidates: list[dict], min_group: int = 2) -> list[dict]:
+    """
+    동일 1순위 보충지번을 공유하는 SKU 그룹에 배치 태그 부여.
+
+    규칙:
+    - matched_bins[0].replenish_bin 기준으로 그룹화
+    - min_group 이상 공유할 때만 태그 부여 (단독은 NULL)
+    - FEFO 정렬(matched_bins) 절대 변경 금지 — 행에 태그만 추가
+    - batch_seq는 risk_score 내림차순 기준
+    """
+    bin_groups: dict[str, list] = defaultdict(list)
+
+    for c in candidates:
+        bins = c.get("matched_bins") or []
+        if not bins:
+            continue
+        primary_bin = bins[0].get("replenish_bin")
+        if primary_bin:
+            bin_groups[primary_bin].append(c)
+
+    for replen_bin, group in bin_groups.items():
+        if len(group) < min_group:
+            continue
+        sorted_group = sorted(group, key=lambda x: x.get("risk_score", 0), reverse=True)
+        for seq, c in enumerate(sorted_group, 1):
+            c["batch_tag"] = replen_bin
+            c["batch_seq"] = seq
+
+    return candidates
+
+
+def apply_batch_tags_to_wave(wave_id: int, session: Session, min_group: int = 2) -> int:
+    """웨이브 후보 전체에 배치 태그 부여 후 DB 업데이트. 반환: 태그 부여된 후보 수."""
+    candidates = session.exec(
+        select(ReplenishCandidate).where(ReplenishCandidate.wave_id == wave_id)
+    ).all()
+
+    # candidate_id → ORM 객체 맵
+    cand_map = {c.candidate_id: c for c in candidates}
+
+    # 기존 태그 초기화 (재실행 시 누적 방지)
+    for c in candidates:
+        c.batch_tag = None
+        c.batch_seq = None
+
+    # dict 변환 (matched_bins 파싱)
+    dicts = []
+    for c in candidates:
+        try:
+            bins = json.loads(c.matched_bins_json or "[]")
+        except Exception:
+            bins = []
+        dicts.append({
+            "candidate_id": c.candidate_id,
+            "risk_score": c.risk_score,
+            "matched_bins": bins,
+        })
+
+    tagged_dicts = assign_batch_tags(dicts, min_group=min_group)
+
+    tagged_count = 0
+    for d in tagged_dicts:
+        if d.get("batch_tag"):
+            cand = cand_map.get(d["candidate_id"])
+            if cand:
+                cand.batch_tag = d["batch_tag"]
+                cand.batch_seq = d["batch_seq"]
+                tagged_count += 1
+
+    session.commit()
+    return tagged_count
+
+
+def calculate_prestock_cutoff(session: Session) -> dict:
+    """
+    선보충 웨이브 최대 처리 SKU 수 동적 산출.
+    active_workers(work_type=FORKLIFT) × uph × (minutes / 60)
+    """
+    try:
+        uph = int(get_config("prestock_uph", session) or 12)
+    except KeyError:
+        uph = 12
+    try:
+        minutes = int(get_config("prestock_minutes", session) or 100)
+    except KeyError:
+        minutes = 100
+
+    active_workers = session.exec(
+        select(Worker).where(
+            Worker.is_active == True,  # noqa: E712
+            Worker.work_type == "FORKLIFT",
+        )
+    ).all()
+    active_count = len(active_workers)
+
+    if active_count == 0:
+        max_sku = 40  # 기본 폴백
+    else:
+        max_sku = max(1, int(active_count * uph * (minutes / 60)))
+
+    return {
+        "active_workers": active_count,
+        "uph": uph,
+        "minutes": minutes,
+        "max_sku": max_sku,
+    }
