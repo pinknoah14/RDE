@@ -115,6 +115,47 @@ def send_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
     return results
 
 
+def _count_real_items(lines: list[str]) -> int:
+    """[📦 헤더] 같은 장식 라인 제외한 실제 항목 수"""
+    return sum(1 for l in lines if l.strip() and not l.startswith("[📦"))
+
+
+def _chunk_preserving_batches(
+    line_groups: list[list[str]],
+    items_per_msg: int,
+) -> list[list[str]]:
+    """
+    배치 그룹(동일 파렛트 묶음)이 다른 메시지로 찢어지지 않도록 분할.
+
+    규칙:
+      - 현재 N개 + 다음 그룹 M개 > items_per_msg 이면 → 다음 메시지로 통째 이동
+      - 단일 그룹이 items_per_msg×2 초과 시 예외적 분할 허용
+        (파렛트 1개에 12개+ SKU 혼적인 극단적 케이스)
+    """
+    chunks: list[list[str]] = []
+    current: list[str] = []
+
+    for group in line_groups:
+        group_size   = _count_real_items(group)
+        current_size = _count_real_items(current)
+
+        if current_size > 0 and current_size + group_size > items_per_msg:
+            chunks.append(current)
+            current = list(group)
+        else:
+            current.extend(group)
+
+        # 단일 그룹이 items_per_msg×2 초과 → 예외 분할
+        if _count_real_items(current) > items_per_msg * 2:
+            chunks.append(current)
+            current = []
+
+    if current:
+        chunks.append(current)
+
+    return chunks if chunks else [[]]
+
+
 def build_wave_message_v2(
     tasks: list,
     locations_map: dict,
@@ -129,7 +170,8 @@ def build_wave_message_v2(
 
     FORKLIFT: 배치 태그 그룹 [📦 보충지번] 헤더 시각화
     WALKING:  보충지번(1순위) 기준 정렬 (L카트 동선 최적화)
-    items_per_msg 단위로 메시지 분할.
+
+    v2.1: 배치 그룹이 메시지 사이에서 절단되지 않도록 그룹 단위로 분할.
     """
     header = f"*{channel_label} {wave_name}*\n\n"
     footer = "\n\n최대한 보충 부탁드립니다. <!here>"
@@ -139,9 +181,11 @@ def build_wave_message_v2(
         if not locs:
             return "-"
         first = locs[0]
-        return getattr(first, "replenish_bin", first.get("replenish_bin", "-") if isinstance(first, dict) else "-")
+        if isinstance(first, dict):
+            return first.get("replenish_bin", "-")
+        return getattr(first, "replenish_bin", "-")
 
-    lines: list[str] = []
+    line_groups: list[list[str]] = []
 
     if worker_type == "FORKLIFT":
         batched = [t for t in tasks if t.get("batch_tag")]
@@ -152,46 +196,38 @@ def build_wave_message_v2(
             key=lambda t: (t.get("batch_tag") or "", t.get("batch_seq") or 0),
         )
 
+        # 배치 그룹별 묶음 (헤더 + 라인들)
+        batch_groups: dict[str, list[str]] = {}
         seq = 1
-        current_tag = None
         for t in batched_sorted:
             tag = t.get("batch_tag")
-            if tag != current_tag:
-                lines.append(f"[📦 {tag}]")
-                current_tag = tag
-            lines.append(
+            if tag not in batch_groups:
+                batch_groups[tag] = [f"[📦 {tag}]"]
+            batch_groups[tag].append(
                 f"  {seq}. {t['picking_bin']}  {t['sku_id']}  {t['sku_name']}  {_replen_bin(t)}"
             )
             seq += 1
 
+        line_groups.extend(batch_groups.values())
+
+        # 단독 건 각각 개별 그룹 (1개짜리 그룹)
         for t in singles:
-            lines.append(
+            line_groups.append([
                 f"{seq}. {t['picking_bin']}  {t['sku_id']}  {t['sku_name']}  {_replen_bin(t)}"
-            )
+            ])
             seq += 1
     else:
-        # WALKING: 보충지번 기준 정렬
+        # WALKING: 보충지번 기준 정렬, 각 항목 개별 그룹
         sorted_tasks = sorted(tasks, key=lambda t: _replen_bin(t))
         for seq, t in enumerate(sorted_tasks, 1):
-            lines.append(
+            line_groups.append([
                 f"{seq}. {t['picking_bin']}  {t['sku_id']}  {t['sku_name']}  {_replen_bin(t)}"
-            )
+            ])
 
-    # items_per_msg 단위 분할 (배치 헤더는 카운트 제외)
-    messages: list[str] = []
-    chunk: list[str] = []
-    real_count = 0
-    for line in lines:
-        chunk.append(line)
-        if not line.startswith("[📦"):
-            real_count += 1
-        if real_count >= items_per_msg:
-            messages.append(header + "\n".join(chunk) + footer)
-            chunk = []
-            real_count = 0
-    if chunk:
-        messages.append(header + "\n".join(chunk) + footer)
+    # v2.1: 배치 그룹 절단 방지 분할
+    chunks = _chunk_preserving_batches(line_groups, items_per_msg)
 
+    messages = [header + "\n".join(c) + footer for c in chunks if c]
     return messages if messages else [header + "(태스크 없음)" + footer]
 
 

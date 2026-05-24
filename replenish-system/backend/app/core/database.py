@@ -45,7 +45,25 @@ SYSTEM_CONFIG_SEED = [
     ("score_boundary_values",    "100,90,75,55,35,15,0",   "CSV_INT", "ALGORITHM", "위험도 구간 점수",             None),
     ("expiry_warning_days",      "30",                     "INTEGER", "ALGORITHM", "유통기한 임박 기준일",         None),
     ("trend_low_threshold",      "0.7",                    "REAL",    "ALGORITHM", "트렌드 하락 판단 기준",        None),
-    ("weight_unassigned",        "15",                     "INTEGER", "ALGORITHM", "미할당 가중치",                None),
+    (
+        "weight_unassigned", "15", "INTEGER", "ALGORITHM",
+        "미할당 발생 위험도 가중치",
+        (
+            "기본값: +15\n"
+            "\n"
+            "[현장 조정 가이드]\n"
+            "실운영 2~3 사이클 후 아래 기준으로 조정:\n"
+            "\n"
+            "· CRITICAL 추천이 늦다 (미할당 터지고 나서야 추천됨)\n"
+            "  → +20 또는 +25로 상향\n"
+            "\n"
+            "· CRITICAL이 너무 많아 관리 불가\n"
+            "  → 현재값(15) 유지\n"
+            "\n"
+            "권장 조정 범위: +15 ~ +25\n"
+            "최대값 +25 초과 시 다른 가중치와 균형 붕괴 위험"
+        ),
+    ),
     ("weight_expiry",            "10",                     "INTEGER", "ALGORITHM", "유통기한 임박 가중치",         None),
     ("weight_event_active",      "10",                     "INTEGER", "ALGORITHM", "이벤트 SKU 가중치",            None),
     ("weight_new_sku",           "5",                      "INTEGER", "ALGORITHM", "신규 SKU 가중치",              None),

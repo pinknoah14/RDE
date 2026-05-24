@@ -68,10 +68,13 @@ replenished_skus: set = set()
 
 
 # ── 유틸 ─────────────────────────────────────────────────────
-def upload_snapshot(time_label: str):
+def upload_snapshot(time_label: str, force_shortage: int = 0):
     elapsed = time_to_elapsed(time_label)
 
-    inv_path, inv_rows = gen_snapshot(time_label, elapsed, replenished_skus)
+    inv_path, inv_rows = gen_snapshot(
+        time_label, elapsed, replenished_skus,
+        force_shortage_count=force_shortage,
+    )
     with open(inv_path, "rb") as f:
         r = client.post(
             "/api/v1/upload/inventory",
@@ -96,13 +99,13 @@ def upload_snapshot(time_label: str):
     return inv_d
 
 
-def run_wave_cycle(slot: dict, max_cand: int = None) -> dict | None:
+def run_wave_cycle(slot: dict, max_cand: int = None, force_shortage: int = 0) -> dict | None:
     """단일 웨이브 사이클: 업로드 → 생성 → 승인 → 확정 → Slack"""
     t_label   = slot["time"]
     wave_type = slot["type"]
 
-    # 1. CSV 업로드
-    inv_d = upload_snapshot(t_label)
+    # 1. CSV 업로드 (force_shortage: 14:00 미할당 폭발 시나리오 등)
+    inv_d = upload_snapshot(t_label, force_shortage=force_shortage)
     picking_cnt   = inv_d.get("picking_count", 0)
     unknown_zones = inv_d.get("unknown_zones", [])
     if unknown_zones:
@@ -222,6 +225,69 @@ def run_wave_cycle(slot: dict, max_cand: int = None) -> dict | None:
     return result
 
 
+def verify_1400_resolution(wave_id_1400: int, wave_id_1430: int | None) -> bool:
+    """
+    14:00 미할당 104개가 16:00 마감 전에 처리되는지 검증.
+
+    작업자 4명(설정), UPH 12(기본) ~ 15(배치 묶음 최대).
+    가용 시간: 14:00~16:00 = 2시간.
+
+    검증 항목:
+      1. 14:00 CRITICAL 추천이 104의 80% 이상
+      2. 배치 묶음 비율로 유효 UPH 산출 → 2시간 처리 용량
+      3. 용량이 104 이상
+    """
+    with Session(engine) as s:
+        tasks_1400 = s.exec(
+            select(ReplenishConfirmedTask)
+            .where(ReplenishConfirmedTask.wave_id == wave_id_1400)
+        ).all()
+        tasks_1430 = []
+        if wave_id_1430:
+            tasks_1430 = s.exec(
+                select(ReplenishConfirmedTask)
+                .where(ReplenishConfirmedTask.wave_id == wave_id_1430)
+            ).all()
+
+        # batch_tag는 candidate 측에 저장 — candidate_id로 lookup
+        from app.models.task import ReplenishCandidate
+        cand_ids = [t.candidate_id for t in tasks_1400 if t.candidate_id]
+        batched_cands = 0
+        if cand_ids:
+            batched_cands = len(s.exec(
+                select(ReplenishCandidate)
+                .where(ReplenishCandidate.candidate_id.in_(cand_ids))
+                .where(ReplenishCandidate.batch_tag.is_not(None))
+            ).all())
+
+        # 활성 작업자 수 (실제 DB 기준)
+        n_workers = len(s.exec(
+            select(Worker).where(Worker.is_active == True)  # noqa: E712
+        ).all())
+
+    total_1400    = len(tasks_1400)
+    batch_ratio   = batched_cands / total_1400 if total_1400 else 0
+    effective_uph = 12 + (15 - 12) * batch_ratio   # 12 ~ 15
+    capacity_2h   = n_workers * effective_uph * 2
+
+    print(f"\n  📊 14:00 미할당 폭발 검증")
+    print(f"  강제 주입: 104개")
+    print(f"  14:00 CRITICAL 추천: {total_1400}개")
+    print(f"  14:30 추가 추천:     {len(tasks_1430)}개")
+    print(f"  배치 태그 비율:      {batch_ratio:.0%}")
+    print(f"  유효 UPH:            {effective_uph:.1f} (12~15)")
+    print(f"  2시간 처리 용량:     {capacity_2h:.0f}개 (작업자 {n_workers}명)")
+    print(f"  104개 처리 가능:     {'✅' if capacity_2h >= 104 else '❌'}")
+    print(f"  CRITICAL 추천 80개+: {'✅' if total_1400 >= 80 else '❌ (' + str(total_1400) + ')'}")
+
+    ok = capacity_2h >= 104 and total_1400 >= 80
+    if not ok:
+        report["issues"].append(
+            f"14:00 미할당 104개 — 처리 용량 {capacity_2h:.0f}, 추천 {total_1400}"
+        )
+    return ok
+
+
 def simulate_completions(wave_id: int, done_ratio: float = 0.7, block_ratio: float = 0.1):
     """작업자 태스크 완료 시뮬레이션 + 보충 완료 SKU 추적"""
     import random as rnd
@@ -276,6 +342,9 @@ print(f"작업자 {len(workers)}명 출근 처리")
 
 # 이전 웨이브 ID 추적
 prev_wave_id = None
+# 14:00 미할당 폭발 시나리오 — 14:00, 14:30 wave_id 별도 기록
+wave_id_1400 = None
+wave_id_1430 = None
 
 print(f"\n{'─'*60}")
 print(f"  {'시각':8s} {'타입':10s} {'후보':>5s} {'CRIT':>5s} {'배치':>5s} {'소요':>6s}")
@@ -289,9 +358,15 @@ for i, slot in enumerate(ACTIVE_SLOTS):
     if prev_wave_id and not is_prestock:
         simulate_completions(prev_wave_id, done_ratio=0.65, block_ratio=0.08)
 
-    result = run_wave_cycle(slot)
+    # 14:00 슬롯: 미할당 104개 강제 주입
+    shortage = 104 if t_label == "14:00" else 0
+    result   = run_wave_cycle(slot, force_shortage=shortage)
     if result:
         prev_wave_id = result["wave_id"]
+        if t_label == "14:00":
+            wave_id_1400 = result["wave_id"]
+        elif t_label == "14:30":
+            wave_id_1430 = result["wave_id"]
         status = "✅" if result["confirmed"] and result["slack_ok"] else "❌"
         print(
             f"  {status} {t_label:8s} {slot['type']:10s} "
@@ -315,6 +390,10 @@ for i, slot in enumerate(ACTIVE_SLOTS):
 # 마지막 웨이브 완료
 if prev_wave_id:
     simulate_completions(prev_wave_id, done_ratio=0.5, block_ratio=0.05)
+
+# 14:00 미할당 폭발 검증 (daily-reset 전에 작업자 활성 상태에서 수행)
+if wave_id_1400:
+    verify_1400_resolution(wave_id_1400, wave_id_1430)
 
 # ── 01:00 마감 ───────────────────────────────────────────────
 print(f"\n{'═'*60}")

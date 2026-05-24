@@ -42,18 +42,32 @@ ZONES = [
 ]
 
 WORKERS = [
+    # 지게차 4명
     {"worker_name": "지게차A", "worker_type": "FORKLIFT",
      "skill_level": "EXPERT",  "work_type": "FORKLIFT",
      "zone_access": '["RA","RB","NC"]', "max_tasks": 6, "is_active": True},
     {"worker_name": "지게차B", "worker_type": "FORKLIFT",
      "skill_level": "NORMAL",  "work_type": "FORKLIFT",
      "zone_access": '["PW","NC"]',      "max_tasks": 5, "is_active": True},
+    {"worker_name": "지게차C", "worker_type": "FORKLIFT",
+     "skill_level": "NORMAL",  "work_type": "FORKLIFT",
+     "zone_access": '["RA","RB","NC","PW"]', "max_tasks": 5, "is_active": True},
+    {"worker_name": "지게차D", "worker_type": "FORKLIFT",
+     "skill_level": "EXPERT",  "work_type": "FORKLIFT",
+     "zone_access": '["RA","RB","NC","PW"]', "max_tasks": 6, "is_active": True},
+    # 도보 4명
     {"worker_name": "도보A",   "worker_type": "WALKING",
      "skill_level": "NORMAL",  "work_type": "WALKING",
      "zone_access": '["RA","RB"]',      "max_tasks": 8, "is_active": True},
     {"worker_name": "도보B",   "worker_type": "WALKING",
      "skill_level": "JUNIOR",  "work_type": "WALKING",
      "zone_access": '["SF","SM"]',      "max_tasks": 6, "is_active": True},
+    {"worker_name": "도보C",   "worker_type": "WALKING",
+     "skill_level": "NORMAL",  "work_type": "WALKING",
+     "zone_access": '["SF","SM"]',      "max_tasks": 8, "is_active": True},
+    {"worker_name": "도보D",   "worker_type": "WALKING",
+     "skill_level": "EXPERT",  "work_type": "WALKING",
+     "zone_access": '["RA","RB","SF","SM"]', "max_tasks": 8, "is_active": True},
 ]
 
 print("=== 초기 설정 ===")

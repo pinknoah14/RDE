@@ -76,10 +76,17 @@ for i in range(N_SKU):
     })
 
 
-def gen_snapshot(time_label: str, elapsed_hours: float, replenished_skus: set = None):
+def gen_snapshot(
+    time_label: str,
+    elapsed_hours: float,
+    replenished_skus: set = None,
+    force_shortage_count: int = 0,
+):
     """
     elapsed_hours: 09:30 기준 경과 시간
     replenished_skus: 이미 보충 완료된 SKU 집합 (피킹존 재고 회복)
+    force_shortage_count: 해당 시각에 강제로 피킹존 재고=0 처리할 SKU 수.
+                         상위 N개 SKU의 avail_p=0 → WMS 버그 재현(피킹존 행 자체 삭제됨)
     """
     if replenished_skus is None:
         replenished_skus = set()
@@ -103,6 +110,10 @@ def gen_snapshot(time_label: str, elapsed_hours: float, replenished_skus: set = 
 
         if sku["sku_id"] in replenished_skus:
             avail_p = int(daily * random.uniform(1.0, 2.0))
+
+        # 강제 품절 주입 (14:00 미할당 폭발 시나리오)
+        if i < force_shortage_count:
+            avail_p = 0
 
         deadline_p = random.randint(10, 365)
 

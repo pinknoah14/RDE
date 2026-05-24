@@ -61,7 +61,15 @@ function ConfigGroup({ configs, group }: { configs: SystemConfig[]; group: strin
         <div key={c.config_key} className="flex items-center justify-between gap-4 rounded-lg border p-3">
           <div className="flex-1">
             <p className="text-sm font-medium">{c.label || c.config_key}</p>
-            {c.description && <p className="text-xs text-muted-foreground">{c.description}</p>}
+            {c.description && (
+              <details className="mt-1">
+                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                  {c.description.split("\n")[0]}
+                  {c.description.includes("\n") && " …"}
+                </summary>
+                <pre className="mt-1 whitespace-pre-line rounded bg-gray-50 p-2 text-xs text-muted-foreground font-sans">{c.description}</pre>
+              </details>
+            )}
             {group === "ALGORITHM" && ALGO_V17_KEYS.includes(c.config_key) && (
               <span className="mt-0.5 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs text-[#5F0080]">v1.7</span>
             )}
