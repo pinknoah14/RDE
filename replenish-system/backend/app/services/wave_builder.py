@@ -1,6 +1,4 @@
 import json
-import math
-import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, date as date_type
@@ -17,10 +15,6 @@ from app.models.worker import Worker
 from app.models.zone import FloorAccessPoint, ScatteredAisleAnchor, ZoneConfig
 from app.services.csv_parser import extract_zone_prefix
 from app.services.algorithm import (
-    nat_sort_key,
-    get_bin_coordinates,
-    travel_cost,
-    proximity_score,
     get_proximity_score_for_bins,
     calculate_base_score,
     risk_level_from_score,

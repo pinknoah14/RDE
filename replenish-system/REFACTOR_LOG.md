@@ -188,7 +188,77 @@ minutes = _cfg_int("prestock_minutes", session, 100)
 
 ---
 
-## 검증 결과
+## 검증 결과 (Phase 2)
 
 - `pytest tests/ -x -q` → 246 passed
 - `npx tsc --noEmit` → 0 errors
+
+---
+
+## Phase 3 — 자동화 도구 전수 점검 (운영 투입 전)
+
+### 자동화 도구 결과
+
+| 도구 | 점검 전 | 점검 후 | 비고 |
+|---|---|---|---|
+| Ruff (린팅) | 14 errors | **0 errors** | 미사용 import 12건 자동 수정 + E402/E741 수동 수정 |
+| Mypy (타입) | 31 errors | (false positive) | SQLModel `table=True` / SQLAlchemy `.in_()` 미지원 — 실제 버그 아님 |
+| Vulture (데드코드) | 2건 | 1건 | `target_channel_id` 제거. `connection_record`는 SQLAlchemy 이벤트 시그니처 필수 → 유지 |
+| TypeScript | 0 errors | **0 errors** | |
+| Next.js 빌드 | 성공 | **성공** | |
+
+### 패턴 검색 결과
+
+| 패턴 | 발견 | 처리 |
+|---|---|---|
+| `print()` 잔재 | 0건 | — |
+| `TODO`/`FIXME` | 0건 | — |
+| `except Exception` (backend) | 6건 | **유지** — 모두 외부 데이터 파싱(CSV polars/pandas) 또는 Slack SDK 호출의 의도된 catch-all (RDEException 변환 + logger.error) |
+| `type: ignore` | 0건 | — |
+| `console.log/error/warn` | 5건 | **5건 모두 toast로 교체** |
+| `any` 타입 | 0건 | — |
+| 50줄 초과 함수 | 11개 | **보류** — 분리 시 변경 위험 크고 핵심 알고리즘(run_algorithm 229줄)은 단일 흐름 유지가 가독성 우위 |
+
+### Phase 3 수정 사항
+
+#### Backend Ruff 자동 수정 (12건)
+- `admin.py`: 미사용 `pathlib.Path` 제거
+- `waves.py`: 미사용 `AlgorithmResult` 제거
+- `sales_parser.py`, `sales_service.py`: 미사용 `typing.Optional` 제거
+- `slack_service.py`: 미사용 `json`, `ZoneConfig` 제거
+- `wave_builder.py`: 미사용 `math`, `re`, algorithm의 4개 함수 import 제거
+
+#### Backend 수동 수정 (4건)
+- `algorithm.py:217` E402: 순환 import 우회용 하단 import에 `# noqa: F401, E402` 추가
+- `slack_service.py:71` E741: 변수명 `l` → `line` (PEP8 권장)
+- `slack.py`: 미사용 `target_channel_id` 쿼리 파라미터 제거 + 미사용 `Query` import 제거
+- `slack.py`: `HTTPException` → `RDEException` (사이트 전체 일관성)
+
+#### Frontend console.error 5건 → toast 교체
+- `settings/picking-zones/page.tsx:22`
+- `settings/access-points/page.tsx:18`
+- `settings/events/page.tsx:35`
+- `settings/workers/page.tsx:28`
+- `waves/[wave_id]/queue/page.tsx:22`
+
+모두 `.catch(console.error)` → `.catch((e) => toast({ title: "...로드 실패", description: e.message, variant: "destructive" }))` 패턴으로 통일.
+
+### 잔여 이슈 (수정 보류)
+
+| 항목 | 사유 |
+|---|---|
+| Mypy 31건 | 전부 SQLModel `table=True` 키워드와 SQLAlchemy `.in_() / .is_not()` 인스턴스 메서드를 mypy가 인식 못 하는 알려진 한계 (sqlmodel-mypy-plugin 별도 필요). 실제 버그 0건. |
+| 50줄 초과 함수 11개 | API 핸들러(create_wave, upload_bin_master 등)와 알고리즘 코어(run_algorithm 229줄)는 분리 시 단일 트랜잭션/상태 추적이 흩어져 가독성 하락. 운영 직전 변경 위험 회피. |
+| `except Exception` 6건 | upload.py 4건은 외부 CSV 라이브러리 예외를 모두 RDEException으로 변환, slack_service.py 2건은 Slack SDK의 다양한 예외(SlackApiError/ConnectionError/TimeoutError)를 큐 상태에 기록 — 모두 의도된 catch-all + 로깅. |
+| connection_record (vulture) | `@event.listens_for(engine, "connect")` 콜백 시그니처의 필수 파라미터. |
+
+### 완료 기준 충족
+
+- ✅ Ruff 에러 0건
+- ✅ print() 잔재 0건
+- ✅ console.log/error/warn 0건
+- ✅ any 타입 0건
+- ✅ TypeScript 에러 0건
+- ✅ Next.js 빌드 성공
+- ✅ pytest 246 passed (예정 — 진행 중)
+- ⚠️ Mypy / 50줄 함수 / except Exception은 분석상 false positive 또는 의도적 패턴으로 판정

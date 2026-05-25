@@ -15,7 +15,10 @@ export default function AccessPointsPage() {
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const [form, setForm] = useState<FloorAccessPointInput>(EMPTY);
 
-  const load = () => api.getAccessPoints().then(setPoints).catch(console.error).finally(() => setLoading(false));
+  const load = () => api.getAccessPoints()
+    .then(setPoints)
+    .catch((e) => toast({ title: "접근점 로드 실패", description: (e as Error).message, variant: "destructive" }))
+    .finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const startEdit = (p: FloorAccessPoint) => {

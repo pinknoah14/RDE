@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends
 from sqlmodel import Session
 
 from app.core.dependencies import get_session
+from app.core.exceptions import RDEException
 from app.models.wave import Wave
 from app.services.slack_service import delete_wave_messages, send_wave_messages
 
@@ -15,7 +16,7 @@ router = APIRouter()
 def send_wave(wave_id: int, session: Session = Depends(get_session)) -> Any:
     wave = session.get(Wave, wave_id)
     if not wave:
-        raise HTTPException(status_code=404, detail="웨이브 없음")
+        raise RDEException(code="WAVE_NOT_FOUND", message="웨이브를 찾을 수 없습니다.", detail=f"wave_id={wave_id}", status_code=404)
     result = send_wave_messages(wave_id, session)
     wave.wave_status = "SENT"
     wave.sent_at = datetime.utcnow()
@@ -31,7 +32,6 @@ def delete_messages(wave_id: int, session: Session = Depends(get_session)) -> An
 @router.post("/{wave_id}/resend")
 def resend_wave(
     wave_id: int,
-    target_channel_id: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> Any:
     return send_wave_messages(wave_id, session)

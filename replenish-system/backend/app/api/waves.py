@@ -12,7 +12,7 @@ from app.core.logging_config import get_logger
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation
 from app.models.wave import Wave
 from app.models.zone import ZoneConfig
-from app.services.algorithm import AlgorithmResult, run_algorithm
+from app.services.algorithm import run_algorithm
 from app.services.csv_parser import extract_zone_prefix
 from app.services.state_machine import InvalidTransitionError, transition_candidate
 from app.services.wave_builder import calculate_prestock_cutoff

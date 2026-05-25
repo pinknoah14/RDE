@@ -19,7 +19,10 @@ export default function QueuePage({ params }: { params: Promise<{ wave_id: strin
   const [selectedChannel, setSelectedChannel] = useState("");
   const [deleted, setDeleted] = useState(false);
 
-  const load = () => api.getWaveTasks(waveId).then(setTasks).catch(console.error).finally(() => setLoading(false));
+  const load = () => api.getWaveTasks(waveId)
+    .then(setTasks)
+    .catch((e) => toast({ title: "큐 로드 실패", description: (e as Error).message, variant: "destructive" }))
+    .finally(() => setLoading(false));
 
   useEffect(() => {
     Promise.all([

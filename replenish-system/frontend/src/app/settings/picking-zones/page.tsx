@@ -19,7 +19,10 @@ export default function PickingZonesPage() {
 
   const load = (q?: string) => {
     setLoading(true);
-    api.getPickingZones(q).then(setZones).catch(console.error).finally(() => setLoading(false));
+    api.getPickingZones(q)
+      .then(setZones)
+      .catch((e) => toast({ title: "피킹지번 로드 실패", description: (e as Error).message, variant: "destructive" }))
+      .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
 

@@ -214,4 +214,4 @@ def match_replen_bins(
     return result
 
 
-from app.services.wave_builder import AlgorithmResult, run_algorithm  # noqa: F401
+from app.services.wave_builder import AlgorithmResult, run_algorithm  # noqa: F401, E402

@@ -1,6 +1,5 @@
 import shutil
 import sqlite3
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import FileResponse, JSONResponse

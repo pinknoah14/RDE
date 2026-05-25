@@ -1,4 +1,3 @@
-import json
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
@@ -11,7 +10,6 @@ from app.core.logging_config import get_logger
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation, ReplenishTaskQueue
 from app.models.worker import Worker
 from app.models.wave import Wave
-from app.models.zone import ZoneConfig
 
 
 logger = get_logger("slack")
@@ -70,7 +68,7 @@ def send_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
 
 def _count_real_items(lines: list[str]) -> int:
     """[📦 헤더] 같은 장식 라인 제외한 실제 항목 수"""
-    return sum(1 for l in lines if l.strip() and not l.startswith("[📦"))
+    return sum(1 for line in lines if line.strip() and not line.startswith("[📦"))
 
 
 def _chunk_preserving_batches(

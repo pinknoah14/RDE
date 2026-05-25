@@ -32,7 +32,10 @@ export default function EventsPage() {
   const [saving, setSaving] = useState(false);
 
   const load = () =>
-    api.getEvents().then(setEvents).catch(console.error).finally(() => setLoading(false));
+    api.getEvents()
+      .then(setEvents)
+      .catch((e) => toast({ title: "이벤트 로드 실패", description: (e as Error).message, variant: "destructive" }))
+      .finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const startNew = () => {

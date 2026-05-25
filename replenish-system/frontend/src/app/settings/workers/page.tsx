@@ -25,7 +25,10 @@ export default function WorkersPage() {
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const [form, setForm] = useState<WorkerInput>(EMPTY);
 
-  const load = () => api.getWorkers().then(setWorkers).catch(console.error).finally(() => setLoading(false));
+  const load = () => api.getWorkers()
+    .then(setWorkers)
+    .catch((e) => toast({ title: "작업자 로드 실패", description: (e as Error).message, variant: "destructive" }))
+    .finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const save = async () => {
