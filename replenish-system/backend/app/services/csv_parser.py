@@ -63,12 +63,29 @@ def load_inventory_csv(path: str) -> pl.DataFrame:
 
 def load_inventory_csv_from_bytes(content: bytes) -> pl.DataFrame:
     raw = decode_csv_bytes(content)
-    return pl.read_csv(
-        io.StringIO(raw),
-        columns=REQUIRED_COLUMNS,
-        schema_overrides=DTYPE_OVERRIDES,
-        null_values=["", " "],
-    )
+    try:
+        return pl.read_csv(
+            io.StringIO(raw),
+            columns=REQUIRED_COLUMNS,
+            schema_overrides=DTYPE_OVERRIDES,
+            null_values=["", " "],
+        )
+    except Exception as parse_err:
+        # 누락 컬럼 목록을 명시해 사용자가 원인을 파악할 수 있도록 한다.
+        try:
+            header_df = pl.read_csv(io.StringIO(raw), n_rows=0, infer_schema_length=0)
+            actual = set(header_df.columns)
+            missing = [c for c in REQUIRED_COLUMNS if c not in actual]
+            if missing:
+                raise ValueError(
+                    f"재고 CSV 필수 컬럼 누락: {', '.join(missing)}\n"
+                    f"업로드한 파일의 컬럼: {', '.join(sorted(actual))}"
+                ) from parse_err
+        except ValueError:
+            raise
+        except Exception:
+            pass
+        raise parse_err
 
 
 def parse_bin_id(bin_id: str) -> dict | None:

@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -30,6 +31,14 @@ from app.api import (
 logger = get_logger("main")
 
 
+def _cors_origins() -> list[str]:
+    """FRONTEND_URL 환경 변수에서 CORS 허용 origin 목록을 읽는다.
+    쉼표로 여러 개 지정 가능. 기본값: http://localhost:3000
+    """
+    raw = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+    return [u.strip() for u in raw.split(",") if u.strip()]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
@@ -49,7 +58,7 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
