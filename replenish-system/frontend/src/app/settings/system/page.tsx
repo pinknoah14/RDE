@@ -36,7 +36,11 @@ function ConfigGroup({ configs, group }: { configs: SystemConfig[]; group: strin
 
   useEffect(() => {
     const map: Record<string, string> = {};
-    configs.forEach((c) => { map[c.config_key] = c.config_value; });
+    configs.forEach((c) => {
+      // SECRET 필드는 빈 문자열로 초기화 — 백엔드가 "***"를 반환하므로
+      // 값을 변경하지 않고 저장하면 "***"가 실제 값으로 덮어씌워지는 버그 방지
+      map[c.config_key] = c.config_type === "SECRET" ? "" : c.config_value;
+    });
     setValues(map);
   }, [configs]);
 
@@ -79,7 +83,8 @@ function ConfigGroup({ configs, group }: { configs: SystemConfig[]; group: strin
               type={c.config_type === "SECRET" ? "password" : "text"}
               value={values[c.config_key] ?? ""}
               onChange={(e) => setValues((p) => ({ ...p, [c.config_key]: e.target.value }))}
-              className="w-36 rounded border px-2 py-1.5 text-sm font-mono"
+              placeholder={c.config_type === "SECRET" ? "새 값 입력 (비우면 PIN 해제)" : ""}
+              className="w-48 rounded border px-2 py-1.5 text-sm font-mono"
             />
             <Button size="sm" variant="outline" className="h-8 gap-1"
               onClick={() => save(c.config_key)} disabled={saving === c.config_key}>
@@ -111,7 +116,7 @@ export default function SystemConfigPage() {
         <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />)}</div>
       ) : (
         <Tabs defaultValue="ALGORITHM">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto gap-1">
             {GROUPS.map((g) => <TabsTrigger key={g.key} value={g.key}>{g.label}</TabsTrigger>)}
           </TabsList>
           {GROUPS.map((g) => (

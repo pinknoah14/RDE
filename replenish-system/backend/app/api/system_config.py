@@ -32,7 +32,7 @@ def list_configs_by_group(group: str, session: Session = Depends(get_session)) -
     return [_to_dict(c) for c in configs]
 
 
-@router.put("/{config_key}")
+@router.patch("/{config_key}")
 def update_config(
     config_key: str,
     body: ConfigUpdateRequest,
