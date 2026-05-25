@@ -116,7 +116,7 @@ class TestPerformance:
 
     def test_algorithm_speed(self, full_session):
         """알고리즘 실행 속도: 20초 이내"""
-        from app.services.algorithm import run_algorithm
+        from app.services.wave_builder import run_algorithm
         from app.models.wave import Wave
 
         wave = Wave(

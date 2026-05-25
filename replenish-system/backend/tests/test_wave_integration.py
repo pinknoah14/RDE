@@ -305,3 +305,121 @@ class TestWaveLifecycle:
         loc_task_ids = {loc.task_id for loc in locations}
         missing = [t.task_id for t in tasks if t.task_id not in loc_task_ids]
         assert not missing, f"Location 없는 Task: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# 웨이브 API 흐름 추가 (from test_step4_api)
+# ---------------------------------------------------------------------------
+
+from sqlalchemy.pool import StaticPool as _StaticPool2
+from sqlmodel import create_engine as _create_engine2, Session as _Session2, SQLModel as _SQLModel2
+
+
+@pytest.fixture()
+def _step4_session():
+    from app.core.database import seed_system_config
+    from app.models.zone import ZoneConfig
+    engine = _create_engine2(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=_StaticPool2,
+    )
+    _SQLModel2.metadata.create_all(engine)
+    with _Session2(engine) as s:
+        seed_system_config(s)
+        s.add(ZoneConfig(
+            zone_prefix="RA", zone_name="RA존", slack_channel="#ra",
+            slack_channel_id="C_RA", access_type="FORKLIFT", list_section="MAIN",
+            origin_x=0.0, origin_y=0.0,
+        ))
+        s.commit()
+        yield s
+
+
+@pytest.fixture()
+def _step4_client(_step4_session):
+    from app.main import app as _app
+    from app.core.dependencies import get_session as _gs
+    def _override():
+        yield _step4_session
+    _app.dependency_overrides[_gs] = _override
+    with TestClient(_app) as c:
+        yield c
+    _app.dependency_overrides.clear()
+
+
+def _seed_step4_data(session, sku_id="SKU_API"):
+    from datetime import datetime as _dt
+    from app.models.sku import SkuPickingHistory, SkuSalesSummary
+    from app.models.inventory import ReplenishBinSnapshot
+    from app.models.upload import UploadSession
+    u = UploadSession(upload_type="INVENTORY", file_name="test.csv",
+                      uploaded_by="테스트", uploaded_at=_dt.utcnow(), center_cd="GGH1")
+    session.add(u)
+    session.commit()
+    session.refresh(u)
+    session.add(SkuPickingHistory(sku_id=sku_id, center_cd="GGH1",
+                                  picking_bin="15RA0101001", zone="RA", last_seen_qty=0, confidence="HIGH"))
+    session.add(ReplenishBinSnapshot(upload_session_id=u.upload_id, center_cd="GGH1",
+                                      sku_id=sku_id, replenish_bin="15RA0201001",
+                                      avail_qty=100, unit_size=12, deadline_days=30))
+    session.add(SkuSalesSummary(sku_id=sku_id, center_cd="GGH1",
+                                base_daily_avg=10.0, recent_daily_avg=10.0,
+                                trend_coef=1.0, adjusted_daily=10.0))
+    session.commit()
+
+
+class TestWaveFullFlow:
+    def test_wave_full_flow(self, _step4_client, _step4_session):
+        _seed_step4_data(_step4_session)
+        res = _step4_client.post("/api/v1/waves", json={"wave_type": "REGULAR"})
+        assert res.status_code == 200
+        wave_id = res.json()["wave_id"]
+        candidates = _step4_client.get(f"/api/v1/waves/{wave_id}/candidates").json()
+        assert len(candidates) >= 1
+        cid = candidates[0]["candidate_id"]
+        assert _step4_client.post(f"/api/v1/waves/{wave_id}/candidates/{cid}/approve").status_code == 200
+        res = _step4_client.post(f"/api/v1/waves/{wave_id}/confirm")
+        assert res.status_code == 200
+        assert res.json()["tasks_created"] >= 1
+        assert _step4_client.get(f"/api/v1/waves/{wave_id}").json()["wave_status"] == "CONFIRMED"
+
+    def test_confirm_without_approved_400(self, _step4_client, _step4_session):
+        _seed_step4_data(_step4_session, sku_id="SKU_400")
+        res = _step4_client.post("/api/v1/waves", json={})
+        wave_id = res.json()["wave_id"]
+        assert _step4_client.post(f"/api/v1/waves/{wave_id}/confirm").status_code == 400
+
+    def test_wave_candidate_reject(self, _step4_client, _step4_session):
+        _seed_step4_data(_step4_session, sku_id="SKU_REJ")
+        wave_id = _step4_client.post("/api/v1/waves", json={}).json()["wave_id"]
+        cid = _step4_client.get(f"/api/v1/waves/{wave_id}/candidates").json()[0]["candidate_id"]
+        res = _step4_client.post(f"/api/v1/waves/{wave_id}/candidates/{cid}/reject",
+                                 params={"reason": "재고 확인 필요"})
+        assert res.status_code == 200
+        assert res.json()["candidate_status"] == "REJECTED"
+
+
+class TestBlockedTaskReincluded:
+    def test_blocked_sku_reincluded_in_next_wave(self, _step4_client, _step4_session):
+        _seed_step4_data(_step4_session, sku_id="SKU_BLK2")
+        res = _step4_client.post("/api/v1/waves", json={})
+        wave1_id = res.json()["wave_id"]
+        candidates = _step4_client.get(f"/api/v1/waves/{wave1_id}/candidates").json()
+        if not candidates:
+            pytest.skip("후보 없음")
+        cid = candidates[0]["candidate_id"]
+        _step4_client.post(f"/api/v1/waves/{wave1_id}/candidates/{cid}/approve")
+        _step4_client.post(f"/api/v1/waves/{wave1_id}/confirm")
+        tasks = _step4_client.get(f"/api/v1/tasks?wave_id={wave1_id}").json()
+        assert tasks
+        task_id = tasks[0]["task_id"]
+        sku_id  = tasks[0]["sku_id"]
+        _step4_client.post(f"/api/v1/tasks/{task_id}/transition", params={"new_status": "QUEUED"})
+        _step4_client.post(f"/api/v1/tasks/{task_id}/transition", params={"new_status": "SENT"})
+        res = _step4_client.post(f"/api/v1/tasks/{task_id}/transition",
+                                 params={"new_status": "BLOCKED", "block_reason": "통로 막힘"})
+        assert res.status_code == 200
+        wave2_id = _step4_client.post("/api/v1/waves", json={}).json()["wave_id"]
+        sku_ids = [c["sku_id"] for c in _step4_client.get(f"/api/v1/waves/{wave2_id}/candidates").json()]
+        assert sku_id in sku_ids

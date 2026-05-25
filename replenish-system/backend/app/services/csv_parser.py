@@ -276,37 +276,36 @@ def update_picking_history(picking_df: pl.DataFrame, session: Session) -> None:
     high_days = int(get_config("confidence_high_days", session))
     medium_days = int(get_config("confidence_medium_days", session))
     low_days = int(get_config("confidence_low_days", session))
-
     today = date.today()
+
+    sku_ids = list(picking_df["상품코드"].unique().to_list())
+    center_cds = list(picking_df["센터"].unique().to_list())
+
+    existing_map: dict[tuple[str, str], SkuPickingHistory] = {
+        (h.sku_id, h.center_cd): h
+        for h in session.exec(
+            select(SkuPickingHistory).where(
+                SkuPickingHistory.sku_id.in_(sku_ids),
+                SkuPickingHistory.center_cd.in_(center_cds),
+            )
+        ).all()
+    }
 
     for row in picking_df.iter_rows(named=True):
         sku_id = row["상품코드"]
         center_cd = row["센터"]
         bin_id = row["지번"]
         avail_qty = row["가용수량"]
-
-        existing = session.exec(
-            select(SkuPickingHistory).where(
-                SkuPickingHistory.sku_id == sku_id,
-                SkuPickingHistory.center_cd == center_cd,
-            )
-        ).first()
+        existing = existing_map.get((sku_id, center_cd))
 
         if existing:
             last_seen = existing.last_seen_date
             days_ago = (today - last_seen).days if last_seen else None
-
-            if days_ago is None:
-                confidence = "NEW"
-            elif days_ago <= high_days:
-                confidence = "HIGH"
-            elif days_ago <= medium_days:
-                confidence = "MEDIUM"
-            elif days_ago <= low_days:
-                confidence = "LOW"
-            else:
-                confidence = "STALE"
-
+            if days_ago is None:           confidence = "NEW"
+            elif days_ago <= high_days:    confidence = "HIGH"
+            elif days_ago <= medium_days:  confidence = "MEDIUM"
+            elif days_ago <= low_days:     confidence = "LOW"
+            else:                          confidence = "STALE"
             existing.picking_bin = bin_id
             existing.last_seen_date = today
             existing.last_seen_qty = avail_qty
@@ -314,26 +313,45 @@ def update_picking_history(picking_df: pl.DataFrame, session: Session) -> None:
             existing.updated_at = datetime.utcnow()
         else:
             zone_prefix = extract_zone_prefix(bin_id or "")
-            session.add(SkuPickingHistory(
-                sku_id=sku_id,
-                center_cd=center_cd,
-                picking_bin=bin_id,
-                zone=zone_prefix,
-                last_seen_date=today,
-                last_seen_qty=avail_qty,
-                is_new_sku=True,
-                confidence="NEW",
+            new_h = SkuPickingHistory(
+                sku_id=sku_id, center_cd=center_cd,
+                picking_bin=bin_id, zone=zone_prefix,
+                last_seen_date=today, last_seen_qty=avail_qty,
+                is_new_sku=True, confidence="NEW",
                 updated_at=datetime.utcnow(),
-            ))
+            )
+            session.add(new_h)
+            existing_map[(sku_id, center_cd)] = new_h  # 같은 배치 내 중복 방지
 
     session.commit()
 
 
 def detect_new_skus(replenish_df: pl.DataFrame, session: Session) -> list[str]:
     """보충존에만 있고 sku_picking_history + sku_sales_summary 모두 없는 신규 SKU"""
+    sku_ids = list(replenish_df["상품코드"].unique().to_list())
+    center_cds = list(replenish_df["센터"].unique().to_list())
+
+    has_history_set: set[tuple[str, str]] = {
+        (h.sku_id, h.center_cd)
+        for h in session.exec(
+            select(SkuPickingHistory).where(
+                SkuPickingHistory.sku_id.in_(sku_ids),
+                SkuPickingHistory.center_cd.in_(center_cds),
+            )
+        ).all()
+    }
+    has_sales_set: set[tuple[str, str]] = {
+        (s.sku_id, s.center_cd)
+        for s in session.exec(
+            select(SkuSalesSummary).where(
+                SkuSalesSummary.sku_id.in_(sku_ids),
+                SkuSalesSummary.center_cd.in_(center_cds),
+            )
+        ).all()
+    }
+
     new_skus: list[str] = []
     seen: set[str] = set()
-
     for row in replenish_df.iter_rows(named=True):
         sku_id = row["상품코드"]
         center_cd = row["센터"]
@@ -341,21 +359,7 @@ def detect_new_skus(replenish_df: pl.DataFrame, session: Session) -> list[str]:
         if key in seen:
             continue
         seen.add(key)
-
-        has_history = session.exec(
-            select(SkuPickingHistory).where(
-                SkuPickingHistory.sku_id == sku_id,
-                SkuPickingHistory.center_cd == center_cd,
-            )
-        ).first()
-        has_sales = session.exec(
-            select(SkuSalesSummary).where(
-                SkuSalesSummary.sku_id == sku_id,
-                SkuSalesSummary.center_cd == center_cd,
-            )
-        ).first()
-
-        if not has_history and not has_sales:
+        if (sku_id, center_cd) not in has_history_set and (sku_id, center_cd) not in has_sales_set:
             new_skus.append(sku_id)
 
     return new_skus

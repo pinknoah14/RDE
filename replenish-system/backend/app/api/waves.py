@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -12,7 +12,7 @@ from app.core.logging_config import get_logger
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation
 from app.models.wave import Wave
 from app.models.zone import ZoneConfig
-from app.services.algorithm import run_algorithm
+from app.services.wave_builder import run_algorithm
 from app.services.csv_parser import extract_zone_prefix
 from app.services.state_machine import InvalidTransitionError, transition_candidate
 from app.services.wave_builder import calculate_prestock_cutoff
@@ -34,7 +34,7 @@ class WaveCreateRequest(BaseModel):
 
 class CandidatePatch(BaseModel):
     modified_qty: int | None = None
-    list_section: Literal["MAIN", "SUB"] | None = None
+    list_section: str | None = None  # "MAIN" | "SUB"
 
 
 class AssignRequest(BaseModel):
@@ -188,6 +188,19 @@ def update_candidate(
     body: CandidatePatch,
     session: Session = Depends(get_session),
 ) -> Any:
+    candidate = session.get(ReplenishCandidate, candidate_id)
+    if not candidate:
+        raise RDEException(code="CANDIDATE_NOT_FOUND", message="후보를 찾을 수 없습니다.", detail=f"candidate_id={candidate_id}", status_code=404)
+
+    if body.list_section is not None:
+        if body.list_section not in ("MAIN", "SUB"):
+            raise RDEException(code="INVALID_SECTION", message="list_section은 MAIN 또는 SUB", status_code=400)
+        candidate.list_section = body.list_section
+        for task in session.exec(
+            select(ReplenishConfirmedTask).where(ReplenishConfirmedTask.candidate_id == candidate_id)
+        ).all():
+            task.list_section = body.list_section
+
     if body.modified_qty is not None:
         try:
             return transition_candidate(
@@ -196,13 +209,10 @@ def update_candidate(
             )
         except InvalidTransitionError as e:
             raise RDEException(code="INVALID_TRANSITION", message=str(e), status_code=400)
-    candidate = session.get(ReplenishCandidate, candidate_id)
-    if not candidate:
-        raise RDEException(code="CANDIDATE_NOT_FOUND", message="후보를 찾을 수 없습니다.", detail=f"candidate_id={candidate_id}", status_code=404)
-    if body.list_section is not None:
-        candidate.list_section = body.list_section
-        session.commit()
-        session.refresh(candidate)
+
+    candidate.updated_at = datetime.utcnow()
+    session.commit()
+    session.refresh(candidate)
     return candidate
 
 
@@ -216,9 +226,11 @@ def assign_candidate(
     candidate = session.get(ReplenishCandidate, candidate_id)
     if not candidate:
         raise RDEException(code="CANDIDATE_NOT_FOUND", message="후보를 찾을 수 없습니다.", detail=f"candidate_id={candidate_id}", status_code=404)
+    candidate.worker_id = body.worker_id
     candidate.updated_at = datetime.utcnow()
     session.commit()
-    return {"candidate_id": candidate_id, "worker_id": body.worker_id}
+    session.refresh(candidate)
+    return candidate
 
 
 def _confirm_wave_internal(

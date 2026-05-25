@@ -109,6 +109,26 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
             if rb.deadline_days is None or rb.deadline_days > 0:
                 replenish_by_sku.setdefault(rb.sku_id, []).append(rb)
 
+    all_sku_ids = [h.sku_id for h in picking_histories]
+    sales_map: dict[str, SkuSalesSummary] = {
+        s.sku_id: s
+        for s in session.exec(
+            select(SkuSalesSummary).where(
+                SkuSalesSummary.center_cd == center_cd,
+                SkuSalesSummary.sku_id.in_(all_sku_ids),
+            )
+        ).all()
+    }
+    blocked_sku_set: set[str] = {
+        t.sku_id
+        for t in session.exec(
+            select(ReplenishConfirmedTask).where(
+                ReplenishConfirmedTask.task_status == "BLOCKED",
+                ReplenishConfirmedTask.sku_id.in_(all_sku_ids),
+            )
+        ).all()
+    }
+
     result = AlgorithmResult()
     no_replen: list[str] = []
     new_skus_seen: set[str] = set()
@@ -118,12 +138,7 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
         sku_id = history.sku_id
         picking_avail = history.last_seen_qty or 0
 
-        sales = session.exec(
-            select(SkuSalesSummary).where(
-                SkuSalesSummary.sku_id == sku_id,
-                SkuSalesSummary.center_cd == center_cd,
-            )
-        ).first()
+        sales = sales_map.get(sku_id)
 
         adjusted_daily = (sales.adjusted_daily if sales else 0.0) or 0.0
         eta_hours = (picking_avail / adjusted_daily) * op_hours if adjusted_daily > 0 else float("inf")
@@ -155,13 +170,7 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
             score += int(config.get("weight_event_active", 10))
             flags.append("이벤트진행")
 
-        prev_blocked = session.exec(
-            select(ReplenishConfirmedTask).where(
-                ReplenishConfirmedTask.sku_id == sku_id,
-                ReplenishConfirmedTask.task_status == "BLOCKED",
-            )
-        ).first()
-        if prev_blocked:
+        if sku_id in blocked_sku_set:
             score += int(config.get("weight_prev_blocked", 5))
             flags.append("BLOCKED이력")
 

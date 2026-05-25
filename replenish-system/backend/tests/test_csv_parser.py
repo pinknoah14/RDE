@@ -447,3 +447,73 @@ class TestExtractZonePrefix:
     def test_empty_unknown(self):
         assert extract_zone_prefix("") == "UNKNOWN"
         assert extract_zone_prefix("15") == "UNKNOWN"
+
+
+# ---------------------------------------------------------------------------
+# parse_bin_id() 확장 시나리오 (from test_step3_scenarios)
+# ---------------------------------------------------------------------------
+
+class TestParseBinIdFull:
+    def test_standard_bin_full(self):
+        from app.services.csv_parser import parse_bin_id
+        r = parse_bin_id("15RA1402201")
+        assert r["zone"] == "RA"
+        assert r["aisle"] == 14
+        assert r["bay"] == 2
+        assert r["level"] == 201
+
+    def test_pw_zone_not_subzone(self):
+        from app.services.csv_parser import parse_bin_id
+        r = parse_bin_id("15PW0301001")
+        assert r["zone"] == "PW"
+        assert r["aisle"] == 3
+        assert r["bay"] == 1
+
+    def test_hold_bin_pkmove_is_none(self):
+        from app.services.csv_parser import parse_bin_id
+        assert parse_bin_id("PKMOVE01") is None
+
+    def test_hold_bin_stopwaste_is_none(self):
+        from app.services.csv_parser import parse_bin_id
+        assert parse_bin_id("STOPWASTEH") is None
+
+    def test_empty_string_is_none(self):
+        from app.services.csv_parser import parse_bin_id
+        assert parse_bin_id("") is None
+
+    def test_none_is_none(self):
+        from app.services.csv_parser import parse_bin_id
+        assert parse_bin_id(None) is None
+
+
+class TestExpiredReplenishFilter:
+    def _make_df(self, deadlines: list):
+        import polars as pl
+        n = len(deadlines)
+        return pl.DataFrame({
+            "지번":        [f"15RA0{i+1}01001" for i in range(n)],
+            "상품코드":    ["A"] * n,
+            "SKU명":       ["A상품"] * n,
+            "센터":        ["GGH1"] * n,
+            "피킹가능":    ["피킹불가"] * n,
+            "가용수량":    [10] * n,
+            "단위수량":    [12] * n,
+            "판매마감일수": deadlines,
+            "입고일자":    [None] * n,
+        })
+
+    def test_zero_deadline_excluded(self, session):
+        from app.services.csv_parser import classify_inventory
+        df = self._make_df([0, 30])
+        result = classify_inventory(df, session)
+        replenish_df = result["replenish"]
+        assert 0 not in replenish_df["판매마감일수"].to_list()
+        assert 30 in replenish_df["판매마감일수"].to_list()
+
+    def test_negative_deadline_excluded(self, session):
+        from app.services.csv_parser import classify_inventory
+        df = self._make_df([-1, 15])
+        result = classify_inventory(df, session)
+        replenish_df = result["replenish"]
+        assert -1 not in replenish_df["판매마감일수"].to_list()
+        assert 15 in replenish_df["판매마감일수"].to_list()

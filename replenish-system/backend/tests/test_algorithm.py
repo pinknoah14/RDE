@@ -2,7 +2,6 @@ import pytest
 from sqlmodel import select
 
 from app.services.algorithm import (
-    AlgorithmResult,
     calculate_base_score,
     calculate_replen_qty,
     get_bin_coordinates,
@@ -10,9 +9,9 @@ from app.services.algorithm import (
     match_replen_bins,
     proximity_score,
     risk_level_from_score,
-    run_algorithm,
     travel_cost,
 )
+from app.services.wave_builder import AlgorithmResult, run_algorithm
 from app.models.zone import ZoneConfig, ScatteredAisleAnchor, FloorAccessPoint
 from app.models.sku import SkuPickingHistory, SkuSalesSummary
 from app.models.inventory import ReplenishBinSnapshot
@@ -338,3 +337,320 @@ class TestRunAlgorithm:
         wave = make_wave(session)
         result = run_algorithm("GGH1", wave.wave_id, session)
         assert "SKU_EXP" in result.no_replen_skus or result.total_candidates == 0
+
+
+# ---------------------------------------------------------------------------
+# 추가 시나리오 (from test_step3_scenarios)
+# ---------------------------------------------------------------------------
+
+import math as _math
+from unittest.mock import MagicMock as _MagicMock
+
+
+def _make_rb_s3(bin_id, avail_qty, deadline_days, unit_size=12):
+    rb = _MagicMock()
+    rb.replenish_bin = bin_id
+    rb.avail_qty = avail_qty
+    rb.deadline_days = deadline_days
+    rb.unit_size = unit_size
+    rb.receipt_date = None
+    return rb
+
+
+class TestTravelCostScenarios:
+    def test_same_floor_345(self):
+        from app.services.algorithm import travel_cost
+        a = {"x": 0.0, "y": 0.0, "floor": 0}
+        b = {"x": 3.0, "y": 4.0, "floor": 0}
+        assert abs(travel_cost(a, b, [], 60.0) - 5.0) < 0.01
+
+    def test_different_floor_no_access_zero_xy(self):
+        from app.services.algorithm import travel_cost
+        a = {"x": 0.0, "y": 0.0, "floor": 0}
+        b = {"x": 0.0, "y": 0.0, "floor": 1}
+        assert abs(travel_cost(a, b, [], 60.0) - 60.0) < 0.01
+
+    def test_different_floor_with_access_via_midpoint(self):
+        from app.services.algorithm import travel_cost
+        a = {"x": 0.0, "y": 0.0, "floor": 0}
+        b = {"x": 20.0, "y": 0.0, "floor": 1}
+        cost = travel_cost(a, b, [{"x": 10.0, "y": 0.0}], 60.0)
+        assert abs(cost - 80.0) < 0.01
+
+    def test_picks_closest_staircase(self):
+        from app.services.algorithm import travel_cost
+        a = {"x": 0.0, "y": 0.0, "floor": 0}
+        b = {"x": 100.0, "y": 0.0, "floor": 1}
+        cost_near = travel_cost(a, b, [{"x": 5.0, "y": 0.0}], 60.0)
+        cost_far  = travel_cost(a, b, [{"x": 95.0, "y": 0.0}], 60.0)
+        cost_both = travel_cost(a, b, [{"x": 5.0, "y": 0.0}, {"x": 95.0, "y": 0.0}], 60.0)
+        assert cost_both == min(cost_near, cost_far)
+
+
+class TestProximityScoreBoundaries:
+    def test_zero_meters(self):
+        from app.services.algorithm import proximity_score
+        assert proximity_score(0.0, 10, 30, 70) == 4
+
+    def test_exactly_near_threshold(self):
+        from app.services.algorithm import proximity_score
+        assert proximity_score(10.0, 10, 30, 70) == 4
+
+    def test_just_above_near_threshold(self):
+        from app.services.algorithm import proximity_score
+        assert proximity_score(10.1, 10, 30, 70) == 3
+
+    def test_exactly_mid_threshold(self):
+        from app.services.algorithm import proximity_score
+        assert proximity_score(30.0, 10, 30, 70) == 3
+
+    def test_just_above_mid_threshold(self):
+        from app.services.algorithm import proximity_score
+        assert proximity_score(30.1, 10, 30, 70) == 2
+
+    def test_exactly_far_threshold(self):
+        from app.services.algorithm import proximity_score
+        assert proximity_score(70.0, 10, 30, 70) == 2
+
+    def test_just_above_far_threshold(self):
+        from app.services.algorithm import proximity_score
+        assert proximity_score(70.1, 10, 30, 70) == 1
+
+    def test_extreme_distance_is_1_not_0(self):
+        from app.services.algorithm import proximity_score
+        assert proximity_score(999.0, 10, 30, 70) == 1
+
+
+class TestProximityScoreFallback:
+    def test_fallback_same_zone_no_coords(self):
+        from app.services.algorithm import get_proximity_score_for_bins
+        score = get_proximity_score_for_bins(
+            "15RA0101001", "15RA0501003",
+            zone_cfg={}, aisle_anchors={}, access_points=[], config={}
+        )
+        assert score == 2
+
+    def test_fallback_different_zone_no_coords(self):
+        from app.services.algorithm import get_proximity_score_for_bins
+        score = get_proximity_score_for_bins(
+            "15RA0101001", "15RB0501003",
+            zone_cfg={}, aisle_anchors={}, access_points=[], config={}
+        )
+        assert score == 1
+
+    def test_hold_bin_as_picking_bin_falls_back(self):
+        from app.services.algorithm import get_proximity_score_for_bins
+        score = get_proximity_score_for_bins(
+            "PKMOVE01", "15RA0101001",
+            zone_cfg={}, aisle_anchors={}, access_points=[], config={}
+        )
+        assert score in [1, 2]
+
+    def test_mixed_floor_lowers_score(self):
+        from app.services.algorithm import get_proximity_score_for_bins
+        def _z(floor):
+            m = _MagicMock()
+            m.is_scattered = False
+            m.floor = floor
+            m.origin_x = 0.0
+            m.origin_y = 0.0
+            m.aisle_direction = "y"
+            m.aisle_gap = 3.0
+            m.bay_gap = 1.5
+            return m
+        zone_cfg = {"RA": _z(0), "SF": _z(1)}
+        score = get_proximity_score_for_bins(
+            "15RA0101001", "15SF0101001",
+            zone_cfg=zone_cfg, aisle_anchors={},
+            access_points=[{"x": 5.0, "y": 5.0}],
+            config={"floor_change_penalty": "60"},
+        )
+        assert score <= 2
+
+
+class TestFefoProximitySort:
+    def test_fefo_beats_proximity(self):
+        from app.services.algorithm import match_replen_bins
+        bins = [
+            _make_rb_s3("15RA0201001", 100, deadline_days=100),
+            _make_rb_s3("15RB1001001", 100, deadline_days=10),
+        ]
+        result = match_replen_bins("15RA0101001", bins, 24, {}, {}, [], {})
+        assert result[0]["replenish_bin"] == "15RB1001001"
+
+    def test_same_deadline_proximity_wins(self):
+        from app.services.algorithm import match_replen_bins
+        z = _MagicMock()
+        z.is_scattered = False
+        z.floor = 0
+        z.origin_x = 0.0
+        z.origin_y = 0.0
+        z.aisle_direction = "y"
+        z.aisle_gap = 3.0
+        z.bay_gap = 1.5
+        result = match_replen_bins(
+            "15RA0101001",
+            [_make_rb_s3("15RA0201001", 100, 30), _make_rb_s3("15RA1001001", 100, 30)],
+            24, {"RA": z}, {}, [], {}
+        )
+        assert result[0]["replenish_bin"] == "15RA0201001"
+
+
+class TestRiskScoreWeights:
+    def test_expiry_critical_weight_applied(self, session):
+        from app.services.wave_builder import run_algorithm
+        from app.models.wave import Wave
+        from app.models.zone import ZoneConfig
+        from app.models.sku import SkuPickingHistory, SkuSalesSummary
+        from app.models.inventory import ReplenishBinSnapshot
+        from app.models.upload import UploadSession
+        from sqlmodel import select
+        if not session.exec(select(ZoneConfig).where(ZoneConfig.zone_prefix == "RA")).first():
+            session.add(ZoneConfig(zone_prefix="RA", zone_name="RA존", slack_channel="#ra",
+                                   access_type="FORKLIFT", list_section="MAIN", origin_x=0.0, origin_y=0.0))
+        u = UploadSession(upload_type="INVENTORY", file_name="t.csv",
+                          uploaded_by="t", uploaded_at=__import__("datetime").datetime.utcnow(), center_cd="GGH1")
+        session.add(u)
+        session.commit()
+        session.refresh(u)
+        session.add(SkuPickingHistory(sku_id="SKU_EC2", center_cd="GGH1",
+                                      picking_bin="15RA0101001", zone="RA", last_seen_qty=0, confidence="HIGH"))
+        session.add(ReplenishBinSnapshot(upload_session_id=u.upload_id, center_cd="GGH1",
+                                         sku_id="SKU_EC2", replenish_bin="15RA0201001",
+                                         avail_qty=100, unit_size=12, deadline_days=3))
+        session.add(SkuSalesSummary(sku_id="SKU_EC2", center_cd="GGH1",
+                                    base_daily_avg=10.0, recent_daily_avg=10.0, trend_coef=1.0, adjusted_daily=10.0))
+        session.commit()
+        w = Wave(wave_name="w", wave_type="REGULAR", wave_status="DRAFT", target_sku_count=10, created_by="t")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        result = run_algorithm("GGH1", w.wave_id, session)
+        assert result.total_candidates >= 1
+        assert result.critical_count + result.high_count >= 1
+
+
+# ---------------------------------------------------------------------------
+# 알고리즘 통합 (from test_step5_algorithm_integration)
+# ---------------------------------------------------------------------------
+
+class TestRunAlgorithmIntegration:
+    def test_produces_candidates_and_saves_to_db(self, session):
+        from app.services.wave_builder import run_algorithm
+        from app.models.wave import Wave
+        from app.models.zone import ZoneConfig
+        from app.models.sku import SkuPickingHistory, SkuSalesSummary
+        from app.models.inventory import ReplenishBinSnapshot
+        from app.models.upload import UploadSession
+        from app.models.task import ReplenishCandidate
+        from sqlmodel import select
+        import datetime as dt
+        if not session.exec(select(ZoneConfig).where(ZoneConfig.zone_prefix == "RA")).first():
+            session.add(ZoneConfig(zone_prefix="RA", zone_name="RA존", slack_channel="#ra",
+                                   access_type="FORKLIFT", list_section="MAIN", origin_x=0.0, origin_y=0.0))
+        u = UploadSession(upload_type="INVENTORY", file_name="t.csv", uploaded_by="t",
+                          uploaded_at=dt.datetime.utcnow(), center_cd="GGH1")
+        session.add(u)
+        session.commit()
+        session.refresh(u)
+        for i, sid in enumerate(["SKU_INT1", "SKU_INT2"]):
+            session.add(SkuPickingHistory(sku_id=sid, center_cd="GGH1",
+                                          picking_bin=f"15RA{i+1:02d}01001", zone="RA",
+                                          last_seen_qty=0, confidence="HIGH"))
+            session.add(ReplenishBinSnapshot(upload_session_id=u.upload_id, center_cd="GGH1",
+                                              sku_id=sid, replenish_bin=f"15RA{i+1:02d}02001",
+                                              avail_qty=100, unit_size=12, deadline_days=30))
+            session.add(SkuSalesSummary(sku_id=sid, center_cd="GGH1",
+                                        base_daily_avg=10.0, recent_daily_avg=10.0,
+                                        trend_coef=1.0, adjusted_daily=10.0))
+        session.commit()
+        w = Wave(wave_name="통합", wave_type="REGULAR", wave_status="DRAFT", target_sku_count=40, created_by="t")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        result = run_algorithm("GGH1", w.wave_id, session)
+        assert result.total_candidates >= 2
+        db_count = len(session.exec(
+            select(ReplenishCandidate).where(ReplenishCandidate.wave_id == w.wave_id)
+        ).all())
+        assert db_count == result.total_candidates
+
+    def test_no_replen_skus_excluded(self, session):
+        from app.services.wave_builder import run_algorithm
+        from app.models.wave import Wave
+        from app.models.zone import ZoneConfig
+        from app.models.sku import SkuPickingHistory, SkuSalesSummary
+        from app.models.inventory import ReplenishBinSnapshot
+        from app.models.upload import UploadSession
+        from sqlmodel import select
+        import datetime as dt
+        if not session.exec(select(ZoneConfig).where(ZoneConfig.zone_prefix == "RA")).first():
+            session.add(ZoneConfig(zone_prefix="RA", zone_name="RA존", slack_channel="#ra",
+                                   access_type="FORKLIFT", list_section="MAIN", origin_x=0.0, origin_y=0.0))
+        u = UploadSession(upload_type="INVENTORY", file_name="t.csv", uploaded_by="t",
+                          uploaded_at=dt.datetime.utcnow(), center_cd="GGH1")
+        session.add(u)
+        session.commit()
+        session.refresh(u)
+        session.add(SkuPickingHistory(sku_id="SKU_NO_REP", center_cd="GGH1",
+                                      picking_bin="15RA0101001", zone="RA", last_seen_qty=0, confidence="HIGH"))
+        session.add(ReplenishBinSnapshot(upload_session_id=u.upload_id, center_cd="GGH1",
+                                          sku_id="SKU_NO_REP", replenish_bin="15RA0201001",
+                                          avail_qty=0, unit_size=12, deadline_days=30))
+        session.add(SkuSalesSummary(sku_id="SKU_NO_REP", center_cd="GGH1",
+                                    base_daily_avg=10.0, recent_daily_avg=10.0,
+                                    trend_coef=1.0, adjusted_daily=10.0))
+        session.commit()
+        w = Wave(wave_name="w", wave_type="REGULAR", wave_status="DRAFT", target_sku_count=40, created_by="t")
+        session.add(w)
+        session.commit()
+        session.refresh(w)
+        result = run_algorithm("GGH1", w.wave_id, session)
+        assert "SKU_NO_REP" in result.no_replen_skus
+
+
+class TestProximityAppliedInSortingIntegration:
+    def _zone_cfg(self, floor=0):
+        z = _MagicMock()
+        z.is_scattered = False
+        z.floor = floor
+        z.origin_x = 0.0
+        z.origin_y = 0.0
+        z.aisle_direction = "y"
+        z.aisle_gap = 3.0
+        z.bay_gap = 1.5
+        return z
+
+    def _rb(self, bin_id, qty, deadline):
+        rb = _MagicMock()
+        rb.replenish_bin = bin_id
+        rb.avail_qty = qty
+        rb.deadline_days = deadline
+        rb.unit_size = 12
+        rb.receipt_date = None
+        return rb
+
+    def test_same_deadline_closer_bin_first(self):
+        from app.services.algorithm import match_replen_bins
+        result = match_replen_bins(
+            "15RA0101001",
+            [self._rb("15RA1001001", 100, 30), self._rb("15RA0201001", 100, 30)],
+            24, {"RA": self._zone_cfg()}, {}, [], {}
+        )
+        assert result[0]["replenish_bin"] == "15RA0201001"
+
+    def test_shorter_deadline_beats_proximity(self):
+        from app.services.algorithm import match_replen_bins
+        result = match_replen_bins(
+            "15RA0101001",
+            [self._rb("15RA0201001", 100, 100), self._rb("15RA1001001", 100, 5)],
+            24, {"RA": self._zone_cfg()}, {}, [], {}
+        )
+        assert result[0]["deadline_days"] == 5
+
+    def test_multi_bin_fefo_sequence_correct(self):
+        from app.services.algorithm import match_replen_bins
+        bins = [self._rb(f"15RA0{i+2}01001", 10, d) for i, d in enumerate([60, 20, 10])]
+        result = match_replen_bins("15RA0101001", bins, 25, {}, {}, [], {})
+        deadlines = [r["deadline_days"] for r in result]
+        assert deadlines == sorted(deadlines)

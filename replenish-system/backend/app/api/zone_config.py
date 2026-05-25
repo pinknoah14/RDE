@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.dependencies import get_session
+from app.core.exceptions import RDEException
 from app.models.zone import FloorAccessPoint, ScatteredAisleAnchor, ZoneConfig, UnknownZoneFlag, PickingZoneMaster
 
 router = APIRouter()
@@ -54,7 +55,7 @@ def update_zone_config(
 ) -> Any:
     zone = session.get(ZoneConfig, zone_config_id)
     if not zone:
-        raise HTTPException(status_code=404, detail="존 설정 없음")
+        raise RDEException(code="ZONE_NOT_FOUND", message="존 설정을 찾을 수 없습니다.", detail=f"zone_config_id={zone_config_id}", status_code=404)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(zone, field, value)
     zone.updated_at = datetime.utcnow()
@@ -67,7 +68,7 @@ def update_zone_config(
 def delete_zone_config(zone_config_id: int, session: Session = Depends(get_session)) -> dict:
     zone = session.get(ZoneConfig, zone_config_id)
     if not zone:
-        raise HTTPException(status_code=404, detail="존 설정 없음")
+        raise RDEException(code="ZONE_NOT_FOUND", message="존 설정을 찾을 수 없습니다.", detail=f"zone_config_id={zone_config_id}", status_code=404)
     session.delete(zone)
     session.commit()
     return {"deleted": zone_config_id}
@@ -100,7 +101,7 @@ class ZoneLayoutUpdate(BaseModel):
 def get_zone_layout(zone_code: str, session: Session = Depends(get_session)) -> Any:
     zone = session.exec(select(ZoneConfig).where(ZoneConfig.zone_prefix == zone_code)).first()
     if not zone:
-        raise HTTPException(status_code=404, detail="존 없음")
+        raise RDEException(code="ZONE_NOT_FOUND", message="존을 찾을 수 없습니다.", detail=f"zone_code={zone_code}", status_code=404)
     return {
         "zone_prefix": zone.zone_prefix,
         "floor": zone.floor,
@@ -121,7 +122,7 @@ def update_zone_layout(
 ) -> Any:
     zone = session.exec(select(ZoneConfig).where(ZoneConfig.zone_prefix == zone_code)).first()
     if not zone:
-        raise HTTPException(status_code=404, detail="존 없음")
+        raise RDEException(code="ZONE_NOT_FOUND", message="존을 찾을 수 없습니다.", detail=f"zone_code={zone_code}", status_code=404)
     for f, v in body.model_dump().items():
         setattr(zone, f, v)
     zone.updated_at = datetime.utcnow()
@@ -224,7 +225,7 @@ def update_floor_access_point(
 ) -> Any:
     ap = session.get(FloorAccessPoint, access_id)
     if not ap:
-        raise HTTPException(status_code=404, detail="접근 포인트 없음")
+        raise RDEException(code="ACCESS_POINT_NOT_FOUND", message="접근 포인트를 찾을 수 없습니다.", detail=f"access_id={access_id}", status_code=404)
     for f, v in body.model_dump(exclude_none=True).items():
         setattr(ap, f, v)
     session.commit()
@@ -236,7 +237,7 @@ def update_floor_access_point(
 def delete_floor_access_point(access_id: int, session: Session = Depends(get_session)) -> Any:
     ap = session.get(FloorAccessPoint, access_id)
     if not ap:
-        raise HTTPException(status_code=404, detail="접근 포인트 없음")
+        raise RDEException(code="ACCESS_POINT_NOT_FOUND", message="접근 포인트를 찾을 수 없습니다.", detail=f"access_id={access_id}", status_code=404)
     session.delete(ap)
     session.commit()
     return {"deleted": access_id}
@@ -280,7 +281,7 @@ def create_picking_zone(
 ) -> Any:
     existing = session.get(PickingZoneMaster, body.bin_id)
     if existing:
-        raise HTTPException(status_code=409, detail="이미 등록된 지번")
+        raise RDEException(code="PICKING_ZONE_DUPLICATE", message="이미 등록된 지번입니다.", detail=f"bin_id={body.bin_id}", status_code=409)
     pz = PickingZoneMaster(**body.model_dump())
     session.add(pz)
     session.commit()
@@ -296,7 +297,7 @@ def update_picking_zone(
 ) -> Any:
     pz = session.get(PickingZoneMaster, bin_id)
     if not pz:
-        raise HTTPException(status_code=404, detail="지번 없음")
+        raise RDEException(code="PICKING_ZONE_NOT_FOUND", message="지번을 찾을 수 없습니다.", detail=f"bin_id={bin_id}", status_code=404)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(pz, field, value)
     pz.updated_at = datetime.utcnow()
@@ -309,7 +310,7 @@ def update_picking_zone(
 def delete_picking_zone(bin_id: str, session: Session = Depends(get_session)) -> dict:
     pz = session.get(PickingZoneMaster, bin_id)
     if not pz:
-        raise HTTPException(status_code=404, detail="지번 없음")
+        raise RDEException(code="PICKING_ZONE_NOT_FOUND", message="지번을 찾을 수 없습니다.", detail=f"bin_id={bin_id}", status_code=404)
     session.delete(pz)
     session.commit()
     return {"deleted": bin_id}

@@ -118,7 +118,7 @@ class TestFullPipeline:
 
     def test_full_pipeline_timing(self, full_session):
         """전체 파이프라인 실행 시간: 30초 이내"""
-        from app.services.algorithm import run_algorithm
+        from app.services.wave_builder import run_algorithm
 
         wave_id = _make_wave(full_session)
         t0 = time.time()
@@ -135,7 +135,7 @@ class TestFullPipeline:
         등급별 분포가 합리적인지(CRITICAL이 전체 50% 이하) 확인.
         max_candidates 필터링은 API 레이어에서 수행.
         """
-        from app.services.algorithm import run_algorithm
+        from app.services.wave_builder import run_algorithm
         from fastapi.testclient import TestClient
 
         wave_id = _make_wave(full_session)
@@ -174,7 +174,7 @@ class TestFullPipeline:
 
     def test_no_duplicate_replenishment_within_wave(self, full_session):
         """단일 웨이브 내 동일 SKU 중복 추천 없음"""
-        from app.services.algorithm import run_algorithm
+        from app.services.wave_builder import run_algorithm
         from sqlmodel import func
 
         wave_id = _make_wave(full_session)
@@ -193,7 +193,7 @@ class TestFullPipeline:
     def test_expired_excluded_from_candidates(self, full_session):
         """만료 보충지번(판매마감일수 <= 0)이 알고리즘 추천에 미포함"""
         from app.models.inventory import ReplenishBinSnapshot
-        from app.services.algorithm import run_algorithm
+        from app.services.wave_builder import run_algorithm
 
         wave_id = _make_wave(full_session)
         run_algorithm("GGH1", wave_id, full_session)
@@ -214,7 +214,7 @@ class TestFullPipeline:
 
     def test_risk_score_range(self, full_session):
         """모든 후보의 risk_score가 0~100 범위인지 확인"""
-        from app.services.algorithm import run_algorithm
+        from app.services.wave_builder import run_algorithm
 
         wave_id = _make_wave(full_session)
         run_algorithm("GGH1", wave_id, full_session)
