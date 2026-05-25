@@ -22,7 +22,6 @@ from app.models.upload import UploadSession
 from app.models.wave import Wave
 from app.models.worker import Worker
 from app.models.zone import PickingZoneMaster, ZoneConfig
-from app.services.slack_service import build_task_block
 
 
 # ---------------------------------------------------------------------------
@@ -156,39 +155,7 @@ def test_today_sales_from_daily_history(session):
 
 
 # ---------------------------------------------------------------------------
-# 3. Slack proximity 아이콘
-# ---------------------------------------------------------------------------
-
-def test_slack_block_has_proximity_icon(session):
-    """build_task_block 결과에 🟢/🟠/🟡/⚪ 포함."""
-    task = ReplenishConfirmedTask(
-        wave_id=1, sku_id="SKU_S", sku_name="슬랙상품",
-        picking_bin="15RA0010001", zone="RA", slack_channel="R존",
-        worker_type="FORKLIFT", total_qty=10,
-        confirm_type="AUTO", confirmed_by="t",
-    )
-    loc1 = ReplenishTaskLocation(
-        task_id=1, seq=1, replenish_bin="15RA9990001",
-        allocated_qty=5, sales_deadline_days=7, proximity_score=4,
-    )
-    loc2 = ReplenishTaskLocation(
-        task_id=1, seq=2, replenish_bin="15RA9990002",
-        allocated_qty=3, sales_deadline_days=None, proximity_score=2,
-    )
-
-    blocks = build_task_block(task, [loc1, loc2])
-    text = blocks[0]["text"]["text"]
-
-    assert "🟢" in text, "proximity=4 아이콘 누락"
-    assert "🟡" in text, "proximity=2 아이콘 누락"
-    assert "15RA9990001" in text
-    assert "5개" in text
-    assert "D-7" in text
-    assert "⚠️" not in text
-
-
-# ---------------------------------------------------------------------------
-# 4. 이벤트 CRUD
+# 3. 이벤트 CRUD
 # ---------------------------------------------------------------------------
 
 def test_event_crud(client):

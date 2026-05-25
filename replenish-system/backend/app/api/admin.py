@@ -2,7 +2,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlmodel import Session
@@ -10,6 +10,7 @@ from sqlmodel import Session
 from app.core.config import get_config
 from app.core.database import DB_PATH
 from app.core.dependencies import get_session
+from app.core.exceptions import RDEException
 
 BACKUP_PATH = DB_PATH.parent / "replenish_backup.db"
 
@@ -48,7 +49,7 @@ def verify_pin(body: PinVerifyRequest, session: Session = Depends(get_session)):
 @router.get("/db-export")
 def export_db():
     if not DB_PATH.exists():
-        raise HTTPException(status_code=404, detail="DB 파일 없음")
+        raise RDEException(code="DB_NOT_FOUND", message="DB 파일 없음", status_code=404)
     return FileResponse(
         path=str(DB_PATH),
         media_type="application/octet-stream",
@@ -67,9 +68,9 @@ async def import_db(file: UploadFile = File(...)):
         conn = sqlite3.connect(str(temp_path))
         conn.execute("SELECT config_key FROM system_config LIMIT 1")
         conn.close()
-    except Exception:
+    except (sqlite3.DatabaseError, sqlite3.OperationalError):
         temp_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=400, detail="호환되지 않는 DB 파일입니다")
+        raise RDEException(code="DB_INCOMPATIBLE", message="호환되지 않는 DB 파일입니다", status_code=400)
 
     # 현재 DB 백업
     if DB_PATH.exists():

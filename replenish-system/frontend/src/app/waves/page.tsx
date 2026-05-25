@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
+import { toast } from "@/components/ui/toast";
 import { formatDate, statusLabel } from "@/lib/utils";
 import type { Wave } from "@/types";
 
@@ -13,7 +14,9 @@ export default function WavesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getWaves().then(setWaves).catch(console.error).finally(() => setLoading(false));
+    api.getWaves().then(setWaves)
+      .catch((e) => toast({ title: "웨이브 로드 실패", description: (e as Error).message, variant: "destructive" }))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -61,7 +64,7 @@ export default function WavesPage() {
                   <td className="px-4 py-3 text-muted-foreground">{w.target_sku_count}</td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(w.created_at)}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/waves/${w.wave_id}`} className="hover:underline text-xs" style={{ color: "#5F0080" }}>
+                    <Link href={`/waves/${w.wave_id}`} className="hover:underline text-xs text-primary">
                       {w.wave_status === "DRAFT" ? "검수하기" : "보기"}
                     </Link>
                   </td>

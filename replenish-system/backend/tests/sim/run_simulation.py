@@ -12,7 +12,7 @@ from app.main import app
 from app.core.database import engine, init_db
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation
 from app.models.sku import SkuSalesSummary
-from app.services.slack_service import build_wave_messages
+from app.services.slack_service import build_wave_messages_v2
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
@@ -316,7 +316,7 @@ print("STEP 6. Slack 메시지 형식 검증")
 print("="*50)
 
 with Session(engine) as s:
-    channel_blocks = build_wave_messages(wave_id, s)
+    channel_blocks = build_wave_messages_v2(wave_id, s)
 
 check(len(channel_blocks) > 0, "Slack/채널분류",
       f"{len(channel_blocks)}개 채널로 분류",

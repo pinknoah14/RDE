@@ -2,7 +2,6 @@ import io
 import json
 import re
 from datetime import date, datetime
-from typing import Optional
 
 import polars as pl
 from sqlmodel import Session, select
@@ -34,16 +33,25 @@ DTYPE_OVERRIDES = {
 }
 
 
+def decode_csv_bytes(raw: bytes, encodings: tuple[str, ...] = ("cp949", "utf-8", "utf-8-sig")) -> str:
+    """CP949 → UTF-8 순서로 디코딩 시도. 모두 실패 시 ValueError."""
+    for enc in encodings:
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    raise ValueError("CSV 인코딩을 인식할 수 없습니다 (UTF-8 또는 CP949)")
+
+
 def load_inventory_csv(path: str) -> pl.DataFrame:
-    raw: Optional[str] = None
-    for enc in ["cp949", "utf-8"]:
+    for enc in ("cp949", "utf-8"):
         try:
             with open(path, encoding=enc) as f:
                 raw = f.read()
             break
         except UnicodeDecodeError:
             continue
-    if raw is None:
+    else:
         raise ValueError(f"CSV 인코딩 읽기 실패: {path}")
     return pl.read_csv(
         io.StringIO(raw),
@@ -54,15 +62,7 @@ def load_inventory_csv(path: str) -> pl.DataFrame:
 
 
 def load_inventory_csv_from_bytes(content: bytes) -> pl.DataFrame:
-    raw: Optional[str] = None
-    for enc in ["cp949", "utf-8"]:
-        try:
-            raw = content.decode(enc)
-            break
-        except UnicodeDecodeError:
-            continue
-    if raw is None:
-        raise ValueError("CSV 인코딩 읽기 실패")
+    raw = decode_csv_bytes(content)
     return pl.read_csv(
         io.StringIO(raw),
         columns=REQUIRED_COLUMNS,

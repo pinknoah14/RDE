@@ -21,33 +21,25 @@ export default function WaveReviewPage({ params }: { params: Promise<{ wave_id: 
   useEffect(() => {
     Promise.all([api.getWave(waveId), api.getCandidates(waveId)])
       .then(([w, c]) => { setWave(w); setCandidates(c); })
-      .catch(console.error)
+      .catch((e) => toast({ title: "로드 실패", description: (e as Error).message, variant: "destructive" }))
       .finally(() => setLoading(false));
   }, [waveId]);
 
-  const refresh = () => api.getCandidates(waveId).then(setCandidates).catch(console.error);
+  const refresh = () =>
+    api.getCandidates(waveId).then(setCandidates)
+      .catch((e) => toast({ title: "새로고침 실패", description: (e as Error).message, variant: "destructive" }));
 
-  const handleApprove = async (cid: number) => {
-    try { await api.approveCandidate(waveId, cid); await refresh(); toast({ title: "승인 완료" }); }
+  const withAction = async (fn: () => Promise<unknown>, successMsg: string) => {
+    try { await fn(); await refresh(); if (successMsg) toast({ title: successMsg }); }
     catch (e) { toast({ title: "오류", description: (e as Error).message, variant: "destructive" }); }
   };
 
-  const handleReject = async (cid: number) => {
-    try { await api.rejectCandidate(waveId, cid); await refresh(); toast({ title: "거절 완료" }); }
-    catch (e) { toast({ title: "오류", description: (e as Error).message, variant: "destructive" }); }
-  };
-
-  const handleModify = async (cid: number, qty: number) => {
-    try { await api.modifyCandidate(waveId, cid, qty); await refresh(); toast({ title: "수량 수정 완료" }); }
-    catch (e) { toast({ title: "오류", description: (e as Error).message, variant: "destructive" }); }
-  };
-
-  const handleMoveSection = async (cid: number, current: "MAIN" | "SUB") => {
-    try {
-      const target = current === "MAIN" ? "SUB" : "MAIN";
-      await api.modifyCandidate(waveId, cid, undefined, target);
-      await refresh();
-    } catch (e) { toast({ title: "이동 실패", description: (e as Error).message, variant: "destructive" }); }
+  const handleApprove = (cid: number) => withAction(() => api.approveCandidate(waveId, cid), "승인 완료");
+  const handleReject = (cid: number) => withAction(() => api.rejectCandidate(waveId, cid), "거절 완료");
+  const handleModify = (cid: number, qty: number) => withAction(() => api.modifyCandidate(waveId, cid, qty), "수량 수정 완료");
+  const handleMoveSection = (cid: number, current: "MAIN" | "SUB") => {
+    const target = current === "MAIN" ? "SUB" : "MAIN";
+    withAction(() => api.modifyCandidate(waveId, cid, undefined, target), "");
   };
 
   const handleConfirm = async () => {

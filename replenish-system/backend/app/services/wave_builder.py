@@ -331,7 +331,8 @@ def apply_batch_tags_to_wave(wave_id: int, session: Session, min_group: int = 2)
     for c in candidates:
         try:
             bins = json.loads(c.matched_bins_json or "[]")
-        except Exception:
+        except json.JSONDecodeError as e:
+            logger.warning("matched_bins JSON 파싱 실패", candidate_id=c.candidate_id, error=str(e))
             bins = []
         dicts.append({
             "candidate_id": c.candidate_id,

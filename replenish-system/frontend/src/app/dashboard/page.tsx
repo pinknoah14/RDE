@@ -49,6 +49,9 @@ export default function DashboardPage() {
   }, [loadDashboard]);
 
   const counts = data?.risk_counts ?? { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  const hasAlerts = data
+    ? (data.new_skus ?? 0) + (data.stale_bins ?? 0) + (data.unknown_zones?.length ?? 0) + (data.unclaimed_tasks ?? 0) + (data.multi_bin_skus ?? 0) > 0
+    : false;
 
   const handleUrgentWave = async () => {
     const total = counts.CRITICAL;
@@ -213,34 +216,34 @@ export default function DashboardPage() {
               {(data?.new_skus ?? 0) > 0 && (
                 <div className="flex items-center justify-between">
                   <span>🆕 신규 입고 상품</span>
-                  <Badge variant="secondary">{data!.new_skus}</Badge>
+                  <Badge variant="secondary">{data?.new_skus}</Badge>
                 </div>
               )}
               {(data?.stale_bins ?? 0) > 0 && (
                 <div className="flex items-center justify-between">
                   <span>⚠️ 지번 확인 필요</span>
-                  <Badge variant="secondary">{data!.stale_bins}</Badge>
+                  <Badge variant="secondary">{data?.stale_bins}</Badge>
                 </div>
               )}
               {(data?.unknown_zones?.length ?? 0) > 0 && (
                 <div className="flex items-center justify-between">
                   <span>🔴 미등록 존</span>
-                  <Badge variant="destructive">{data!.unknown_zones.length}</Badge>
+                  <Badge variant="destructive">{data?.unknown_zones?.length}</Badge>
                 </div>
               )}
               {(data?.unclaimed_tasks ?? 0) > 0 && (
                 <div className="flex items-center justify-between">
                   <span>🟡 미선점 경고</span>
-                  <Badge variant="secondary">{data!.unclaimed_tasks}</Badge>
+                  <Badge variant="secondary">{data?.unclaimed_tasks}</Badge>
                 </div>
               )}
               {(data?.multi_bin_skus ?? 0) > 0 && (
                 <div className="flex items-center justify-between">
                   <span>🔵 다중 피킹지번</span>
-                  <Badge variant="secondary">{data!.multi_bin_skus}</Badge>
+                  <Badge variant="secondary">{data?.multi_bin_skus}</Badge>
                 </div>
               )}
-              {!data?.new_skus && !data?.stale_bins && !data?.unknown_zones?.length && !data?.unclaimed_tasks && !data?.multi_bin_skus && (
+              {!hasAlerts && (
                 <p className="text-muted-foreground text-xs">알림 없음</p>
               )}
             </CardContent>

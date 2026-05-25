@@ -95,7 +95,9 @@ export default function ZonesPage() {
   const [saving, setSaving] = useState(false);
 
   const load = () =>
-    api.getZones().then(setZones).catch(console.error).finally(() => setLoading(false));
+    api.getZones().then(setZones)
+      .catch((e) => toast({ title: "데이터 로드 실패", description: (e as Error).message, variant: "destructive" }))
+      .finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const toggleScattered = async (zone: ZoneConfig) => {

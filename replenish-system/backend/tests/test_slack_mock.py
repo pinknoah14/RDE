@@ -118,13 +118,11 @@ def _create_confirmed_wave(client: TestClient, max_candidates: int = 5) -> int |
 
 class TestSlackMessages:
 
-    def test_build_wave_messages_format(self, full_session):
-        """build_wave_messages가 채널별 Block Kit 블록 딕셔너리를 반환하는지 확인"""
+    def test_build_wave_messages_v2_format(self, full_session):
+        """build_wave_messages_v2가 채널별 텍스트 메시지 딕셔너리를 반환하는지 확인"""
         from app.models.wave import Wave
-        from app.models.task import ReplenishConfirmedTask
-        from app.services.slack_service import build_wave_messages
+        from app.services.slack_service import build_wave_messages_v2
 
-        # wave + 태스크 없이 호출 시 빈 딕셔너리 반환해야 함
         wave = Wave(
             wave_name=f"slack테스트_{datetime.utcnow().strftime('%f')}",
             wave_status="CONFIRMED", target_sku_count=5, created_by="slack테스트",
@@ -133,24 +131,23 @@ class TestSlackMessages:
         full_session.commit()
         full_session.refresh(wave)
 
-        result = build_wave_messages(wave.wave_id, full_session)
+        result = build_wave_messages_v2(wave.wave_id, full_session)
         assert isinstance(result, dict)
 
-    def test_build_wave_messages_with_tasks(self, client, full_session):
-        """확정 웨이브의 메시지에 section 블록이 포함되는지 확인"""
-        from app.services.slack_service import build_wave_messages
+    def test_build_wave_messages_v2_with_tasks(self, client, full_session):
+        """확정 웨이브의 v2 메시지가 텍스트 문자열 리스트를 반환하는지 확인"""
+        from app.services.slack_service import build_wave_messages_v2
 
         wave_id = _create_confirmed_wave(client)
         if wave_id is None:
             pytest.skip("후보 없음")
 
-        channel_blocks = build_wave_messages(wave_id, full_session)
-        assert isinstance(channel_blocks, dict)
-        for ch, blocks in channel_blocks.items():
-            assert isinstance(blocks, list)
-            assert len(blocks) > 0
-            types = [b.get("type") for b in blocks]
-            assert "section" in types or "divider" in types
+        channel_msgs = build_wave_messages_v2(wave_id, full_session)
+        assert isinstance(channel_msgs, dict)
+        for key, msgs in channel_msgs.items():
+            assert isinstance(msgs, list)
+            assert len(msgs) > 0
+            assert all(isinstance(m, str) for m in msgs)
 
     def test_slack_send_without_token_queues(self, client):
         """bot_token 미설정 시 메시지가 WAITING 상태로 queue에 저장되는지 확인"""

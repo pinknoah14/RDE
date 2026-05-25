@@ -71,7 +71,7 @@ function ConfigGroup({ configs, group }: { configs: SystemConfig[]; group: strin
               </details>
             )}
             {group === "ALGORITHM" && ALGO_V17_KEYS.includes(c.config_key) && (
-              <span className="mt-0.5 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs text-[#5F0080]">v1.7</span>
+              <span className="mt-0.5 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs text-primary">v1.7</span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -98,7 +98,9 @@ export default function SystemConfigPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getSystemConfig().then(setConfigs).catch(console.error).finally(() => setLoading(false));
+    api.getSystemConfig().then(setConfigs)
+      .catch((e) => toast({ title: "설정 로드 실패", description: (e as Error).message, variant: "destructive" }))
+      .finally(() => setLoading(false));
   }, []);
 
   return (

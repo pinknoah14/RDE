@@ -174,6 +174,23 @@ export interface WaveCreateRequest {
   target_days?: number;
 }
 
+export interface WaveCreateResponse {
+  wave_id: number;
+  wave_name: string;
+  wave_type?: string;
+  max_candidates?: number;
+  prestock_cutoff?: PrestockCutoff | null;
+  algorithm: {
+    total_candidates: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    no_replen_skus: string[];
+    execution_ms: number;
+  };
+}
+
 export interface UploadResult {
   upload_id?: number;
   message?: string;

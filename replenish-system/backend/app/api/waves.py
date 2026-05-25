@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -152,7 +152,8 @@ def list_candidates(
         d = c.model_dump()
         try:
             d["matched_bins"] = json.loads(c.matched_bins_json or "[]")
-        except Exception:
+        except json.JSONDecodeError as e:
+            logger.warning("matched_bins JSON 파싱 실패", candidate_id=c.candidate_id, error=str(e))
             d["matched_bins"] = []
         result.append(d)
     return result
@@ -163,7 +164,7 @@ def approve_candidate(wave_id: int, candidate_id: int, session: Session = Depend
     try:
         return transition_candidate(candidate_id, "APPROVED", actor="관리자", session=session)
     except InvalidTransitionError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise RDEException(code="INVALID_TRANSITION", message=str(e), status_code=400)
 
 
 @router.post("/{wave_id}/candidates/{candidate_id}/reject")
@@ -176,7 +177,7 @@ def reject_candidate(
     try:
         return transition_candidate(candidate_id, "REJECTED", actor="관리자", rejected_reason=reason, session=session)
     except InvalidTransitionError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise RDEException(code="INVALID_TRANSITION", message=str(e), status_code=400)
 
 
 @router.patch("/{wave_id}/candidates/{candidate_id}")
@@ -193,10 +194,10 @@ def update_candidate(
                 modified_qty=body.modified_qty, session=session
             )
         except InvalidTransitionError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise RDEException(code="INVALID_TRANSITION", message=str(e), status_code=400)
     candidate = session.get(ReplenishCandidate, candidate_id)
     if not candidate:
-        raise HTTPException(status_code=404, detail="후보 없음")
+        raise RDEException(code="CANDIDATE_NOT_FOUND", message="후보를 찾을 수 없습니다.", detail=f"candidate_id={candidate_id}", status_code=404)
     return candidate
 
 
@@ -209,7 +210,7 @@ def assign_candidate(
 ) -> Any:
     candidate = session.get(ReplenishCandidate, candidate_id)
     if not candidate:
-        raise HTTPException(status_code=404, detail="후보 없음")
+        raise RDEException(code="CANDIDATE_NOT_FOUND", message="후보를 찾을 수 없습니다.", detail=f"candidate_id={candidate_id}", status_code=404)
     candidate.updated_at = datetime.utcnow()
     session.commit()
     return {"candidate_id": candidate_id, "worker_id": body.worker_id}

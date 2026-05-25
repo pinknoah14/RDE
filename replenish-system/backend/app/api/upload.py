@@ -1,10 +1,12 @@
+import io
 from datetime import datetime
 
 import polars as pl
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlmodel import Session, select
 
 from app.core.dependencies import get_session
+from app.core.exceptions import RDEException
 from app.core.logging_config import get_logger
 from app.models.bin_master import BinMaster
 from app.models.inventory import ReplenishBinSnapshot
@@ -12,6 +14,7 @@ from app.models.upload import UploadSession
 from app.models.zone import ZoneConfig
 from app.services.csv_parser import (
     classify_inventory,
+    decode_csv_bytes,
     detect_multi_picking_bins,
     detect_new_skus,
     detect_unknown_zones,
@@ -60,7 +63,7 @@ async def upload_inventory(
         df = load_inventory_csv_from_bytes(content)
     except Exception as e:
         logger.error("재고 CSV 파싱 실패", file=file.filename, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
+        raise RDEException(code="UPLOAD_PARSE_ERROR", message=str(e), status_code=400)
 
     classified = classify_inventory(df, session)
     picking_df = classified["picking"]
@@ -156,7 +159,7 @@ async def upload_outbound(
     try:
         df = parse_outbound_csv(content)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise RDEException(code="UPLOAD_PARSE_ERROR", message=str(e), status_code=400)
     return _save_sales(df, file.filename or "outbound.csv", "OUTBOUND", center_cd, uploaded_by, session)
 
 
@@ -171,7 +174,7 @@ async def upload_pivot_sales(
     try:
         df = parse_pivot_csv(content)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise RDEException(code="UPLOAD_PARSE_ERROR", message=str(e), status_code=400)
     return _save_sales(df, file.filename or "pivot.csv", "PIVOT", center_cd, uploaded_by, session)
 
 
@@ -184,21 +187,15 @@ async def upload_bin_master(
 ):
     content = await file.read()
 
-    # CP949 → UTF-8 폴백
-    for enc in ("utf-8-sig", "cp949"):
-        try:
-            text = content.decode(enc)
-            break
-        except UnicodeDecodeError:
-            continue
-    else:
-        raise HTTPException(status_code=400, detail="파일 인코딩을 인식할 수 없습니다 (UTF-8 또는 CP949)")
+    try:
+        text = decode_csv_bytes(content, encodings=("utf-8-sig", "cp949", "utf-8"))
+    except ValueError as e:
+        raise RDEException(code="UPLOAD_ENCODING_ERROR", message=str(e), status_code=400)
 
     try:
-        import io
         df = pl.read_csv(io.StringIO(text), infer_schema_length=0, truncate_ragged_lines=True)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"CSV 파싱 오류: {e}")
+        raise RDEException(code="UPLOAD_PARSE_ERROR", message=f"CSV 파싱 오류: {e}", status_code=400)
 
     # 컬럼 정규화 (공백 제거)
     df = df.rename({c: c.strip() for c in df.columns})
@@ -229,7 +226,7 @@ async def upload_bin_master(
             missing.append("작업존 지번 설명(지번코드)")
         if not zone_col:
             missing.append("존")
-        raise HTTPException(status_code=400, detail=f"필수 컬럼 누락: {', '.join(missing)}")
+        raise RDEException(code="UPLOAD_MISSING_COLUMNS", message=f"필수 컬럼 누락: {', '.join(missing)}", status_code=400)
 
     def _bool(val: str | None) -> bool:
         if val is None:

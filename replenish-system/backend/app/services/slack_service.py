@@ -1,11 +1,14 @@
 import json
 from collections import defaultdict
+from datetime import datetime
 from typing import Any
 
+from slack_sdk import WebClient
 from sqlmodel import Session, select
 
+from app.core.config import get_config
 from app.core.logging_config import get_logger
-from app.models.task import ReplenishConfirmedTask, ReplenishTaskLocation, ReplenishTaskQueue
+from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation, ReplenishTaskQueue
 from app.models.worker import Worker
 from app.models.wave import Wave
 from app.models.zone import ZoneConfig
@@ -15,58 +18,11 @@ logger = get_logger("slack")
 PROXIMITY_ICON = {4: "🟢", 3: "🟠", 2: "🟡", 1: "⚪"}
 
 
-def build_task_block(task: ReplenishConfirmedTask, locations: list) -> list[dict]:
-    """단일 태스크 Block Kit 블록 생성."""
-    loc_lines = []
-    for loc in locations:
-        days_str = f"D-{loc.sales_deadline_days}" if loc.sales_deadline_days is not None else ""
-        score_icon = PROXIMITY_ICON.get(loc.proximity_score or 0, "")
-        line = f"• `{loc.replenish_bin}` {loc.allocated_qty}개"
-        if days_str:
-            line += f" {days_str}"
-        if score_icon:
-            line += f" {score_icon}"
-        loc_lines.append(line)
-
-    locations_text = "\n".join(loc_lines) if loc_lines else "⚠️ 보충지번 정보 없음"
-
-    return [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": (
-                    f"*{task.sku_name}*\n"
-                    f"피킹: `{task.picking_bin}` → 보충:\n"
-                    f"{locations_text}"
-                ),
-            },
-        },
-        {"type": "divider"},
-    ]
-
-
-def build_wave_messages(wave_id: int, session: Session) -> dict[str, list]:
-    """웨이브 태스크를 채널별 Block Kit 메시지로 구성."""
-    tasks = session.exec(
-        select(ReplenishConfirmedTask).where(
-            ReplenishConfirmedTask.wave_id == wave_id,
-            ReplenishConfirmedTask.task_status.in_(["READY", "QUEUED"]),
-        )
-    ).all()
-
-    channel_blocks: dict[str, list] = {}
-    for task in tasks:
-        locations = session.exec(
-            select(ReplenishTaskLocation).where(
-                ReplenishTaskLocation.task_id == task.task_id
-            ).order_by(ReplenishTaskLocation.seq)
-        ).all()
-        ch = task.slack_channel or "unknown"
-        channel_blocks.setdefault(ch, [])
-        channel_blocks[ch].extend(build_task_block(task, locations))
-
-    return channel_blocks
+def _get_bot_token(session: Session) -> str:
+    try:
+        return get_config("slack_bot_token", session)
+    except KeyError:
+        return ""
 
 
 def send_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
@@ -75,13 +31,7 @@ def send_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
     bot_token 미설정 시 queue에만 저장.
     v2.3: build_wave_messages_v2 (text 라인 형식) 사용. 배치 그룹 절단 방지 포함.
     """
-    from app.core.config import get_config
-
-    try:
-        bot_token = get_config("slack_bot_token", session)
-    except KeyError:
-        bot_token = ""
-
+    bot_token = _get_bot_token(session)
     channel_messages = build_wave_messages_v2(wave_id, session)
     results: dict[str, Any] = {"sent": [], "queued": [], "failed": []}
 
@@ -96,15 +46,10 @@ def send_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
 
             if bot_token:
                 try:
-                    from slack_sdk import WebClient
                     client = WebClient(token=bot_token)
-                    resp = client.chat_postMessage(
-                        channel=channel,
-                        text=text,
-                    )
+                    resp = client.chat_postMessage(channel=channel, text=text)
                     queue_entry.queue_status = "SENT"
                     queue_entry.slack_ts = resp.get("ts")
-                    from datetime import datetime
                     queue_entry.sent_at = datetime.utcnow()
                     results["sent"].append(channel)
                     logger.info("Slack 전송", wave_id=wave_id, channel=channel, ts=resp.get("ts"))
@@ -247,8 +192,6 @@ def build_wave_messages_v2(wave_id: int, session: Session) -> dict[str, list[str
     반환 키 형식: "{channel}_{group}"
       group ∈ {"forklift", "walking", "junior"}
     """
-    from app.core.config import get_config
-
     try:
         items_per_msg = int(get_config("slack_items_per_message", session) or 6)
     except KeyError:
@@ -271,7 +214,6 @@ def build_wave_messages_v2(wave_id: int, session: Session) -> dict[str, list[str
         ).all()
 
     # candidate_id → batch_tag/batch_seq 맵
-    from app.models.task import ReplenishCandidate
     cand_ids = [t.candidate_id for t in tasks if t.candidate_id]
     cand_tags: dict[int, dict] = {}
     if cand_ids:
@@ -340,12 +282,7 @@ def build_wave_messages_v2(wave_id: int, session: Session) -> dict[str, list[str
 
 def delete_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
     """전송된 메시지 삭제."""
-    from app.core.config import get_config
-
-    try:
-        bot_token = get_config("slack_bot_token", session)
-    except KeyError:
-        bot_token = ""
+    bot_token = _get_bot_token(session)
 
     queues = session.exec(
         select(ReplenishTaskQueue).where(
@@ -359,7 +296,6 @@ def delete_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
     for q in queues:
         if bot_token and q.slack_ts:
             try:
-                from slack_sdk import WebClient
                 client = WebClient(token=bot_token)
                 client.chat_delete(channel=q.slack_channel, ts=q.slack_ts)
                 deleted.append(q.slack_channel)

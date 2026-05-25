@@ -1,5 +1,5 @@
 import type {
-  Wave, WaveCreateRequest, Candidate,
+  Wave, WaveCreateRequest, WaveCreateResponse, Candidate,
   ZoneConfig, ZoneLayout, AisleAnchor,
   FloorAccessPoint, FloorAccessPointInput,
   SystemConfig, DashboardSummary,
@@ -37,9 +37,7 @@ export const api = {
   // 웨이브
   getWaves: () => request<Wave[]>("/waves"),
   createWave: (body: WaveCreateRequest) =>
-    request<{ wave_id: number; wave_name: string; wave_type?: string; max_candidates?: number; prestock_cutoff?: PrestockCutoff | null; algorithm: { total_candidates: number; critical: number; high: number; medium: number; low: number; no_replen_skus: string[]; execution_ms: number } }>(
-      "/waves", { method: "POST", body: JSON.stringify(body) }
-    ),
+    request<WaveCreateResponse>("/waves", { method: "POST", body: JSON.stringify(body) }),
   getPrestockCutoff: () => request<PrestockCutoff>("/waves/cutoff/prestock"),
   getWave: (id: number) => request<Wave>(`/waves/${id}`),
   confirmWave: (id: number, confirmedBy = "관리자") =>
