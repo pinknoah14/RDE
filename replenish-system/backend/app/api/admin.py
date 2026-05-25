@@ -68,7 +68,7 @@ async def import_db(file: UploadFile = File(...)):
         conn = sqlite3.connect(str(temp_path))
         conn.execute("SELECT config_key FROM system_config LIMIT 1")
         conn.close()
-    except (sqlite3.DatabaseError, sqlite3.OperationalError):
+    except sqlite3.DatabaseError:
         temp_path.unlink(missing_ok=True)
         raise RDEException(code="DB_INCOMPATIBLE", message="호환되지 않는 DB 파일입니다", status_code=400)
 

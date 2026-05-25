@@ -15,7 +15,6 @@ from app.models.zone import ZoneConfig
 
 
 logger = get_logger("slack")
-PROXIMITY_ICON = {4: "🟢", 3: "🟠", 2: "🟡", 1: "⚪"}
 
 
 def _get_bot_token(session: Session) -> str:

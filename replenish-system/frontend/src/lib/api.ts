@@ -16,7 +16,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail ?? `HTTP ${res.status}`);
+    throw new Error(err.message || err.detail || `HTTP ${res.status}`);
   }
   return res.json();
 }
@@ -28,7 +28,7 @@ async function upload<T>(path: string, file: File, extra?: Record<string, string
   const res = await fetch(`${BASE}${path}`, { method: "POST", body: fd });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail ?? `HTTP ${res.status}`);
+    throw new Error(err.message || err.detail || `HTTP ${res.status}`);
   }
   return res.json();
 }

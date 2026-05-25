@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, RefreshCw, Users, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,6 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [urgentLoading, setUrgentLoading] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
 
   const loadDashboard = useCallback(async () => {
@@ -42,10 +41,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboard();
-    intervalRef.current = setInterval(loadDashboard, POLL_INTERVAL_MS);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    const id = setInterval(loadDashboard, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
   }, [loadDashboard]);
 
   const counts = data?.risk_counts ?? { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };

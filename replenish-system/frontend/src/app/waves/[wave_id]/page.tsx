@@ -30,8 +30,11 @@ export default function WaveReviewPage({ params }: { params: Promise<{ wave_id: 
       .catch((e) => toast({ title: "새로고침 실패", description: (e as Error).message, variant: "destructive" }));
 
   const withAction = async (fn: () => Promise<unknown>, successMsg: string) => {
-    try { await fn(); await refresh(); if (successMsg) toast({ title: successMsg }); }
-    catch (e) { toast({ title: "오류", description: (e as Error).message, variant: "destructive" }); }
+    try {
+      await fn();
+      if (successMsg) toast({ title: successMsg });
+      refresh().catch(() => {});
+    } catch (e) { toast({ title: "오류", description: (e as Error).message, variant: "destructive" }); }
   };
 
   const handleApprove = (cid: number) => withAction(() => api.approveCandidate(waveId, cid), "승인 완료");

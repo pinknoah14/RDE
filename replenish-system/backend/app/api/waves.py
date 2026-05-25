@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -34,6 +34,7 @@ class WaveCreateRequest(BaseModel):
 
 class CandidatePatch(BaseModel):
     modified_qty: int | None = None
+    list_section: Literal["MAIN", "SUB"] | None = None
 
 
 class AssignRequest(BaseModel):
@@ -198,6 +199,10 @@ def update_candidate(
     candidate = session.get(ReplenishCandidate, candidate_id)
     if not candidate:
         raise RDEException(code="CANDIDATE_NOT_FOUND", message="후보를 찾을 수 없습니다.", detail=f"candidate_id={candidate_id}", status_code=404)
+    if body.list_section is not None:
+        candidate.list_section = body.list_section
+        session.commit()
+        session.refresh(candidate)
     return candidate
 
 

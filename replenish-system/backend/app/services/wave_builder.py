@@ -45,6 +45,13 @@ class AlgorithmResult:
 logger = get_logger("algorithm")
 
 
+def _cfg_int(key: str, session: Session, default: int) -> int:
+    try:
+        return int(get_config(key, session) or default)
+    except KeyError:
+        return default
+
+
 def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmResult:
     start = datetime.utcnow()
     logger.info("알고리즘 실행 시작", center_cd=center_cd, wave_id=wave_id)
@@ -260,11 +267,7 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
     session.commit()
 
     # 후처리: 배치 태그 부여 (혼적 파렛트 묶음)
-    try:
-        min_group = int(get_config("batch_tag_min_group", session) or 2)
-    except KeyError:
-        min_group = 2
-    apply_batch_tags_to_wave(wave_id, session, min_group=min_group)
+    apply_batch_tags_to_wave(wave_id, session, min_group=_cfg_int("batch_tag_min_group", session, 2))
 
     result.no_replen_skus = no_replen
     result.new_skus = list(new_skus_seen)
@@ -360,14 +363,8 @@ def calculate_prestock_cutoff(session: Session) -> dict:
     선보충 웨이브 최대 처리 SKU 수 동적 산출.
     active_workers(work_type=FORKLIFT) × uph × (minutes / 60)
     """
-    try:
-        uph = int(get_config("prestock_uph", session) or 12)
-    except KeyError:
-        uph = 12
-    try:
-        minutes = int(get_config("prestock_minutes", session) or 100)
-    except KeyError:
-        minutes = 100
+    uph = _cfg_int("prestock_uph", session, 12)
+    minutes = _cfg_int("prestock_minutes", session, 100)
 
     active_workers = session.exec(
         select(Worker).where(
