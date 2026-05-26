@@ -38,16 +38,18 @@ else
     exit 1
 fi
 
-# 3. 프론트엔드 빌드
+# 3. 프론트엔드 빌드 (포트 점유 프로세스 먼저 정리)
 echo ""
 echo "[3/4] 프론트엔드 빌드 중... (1~2분 소요)"
+sudo fuser -k 3000/tcp 2>/dev/null || true
+pm2 stop "$FRONTEND_PM2" 2>/dev/null || true
 cd "$FRONTEND_DIR"
 npm run build
 
 # 4. 프론트엔드 재시작
 echo ""
 echo "[4/4] 프론트엔드 재시작..."
-pm2 restart "$FRONTEND_PM2"
+pm2 restart "$FRONTEND_PM2" 2>/dev/null || pm2 start "$FRONTEND_PM2"
 sleep 2
 if pm2 show "$FRONTEND_PM2" | grep -q "online"; then
     echo "  ✓ 프론트엔드 정상 실행 중"
