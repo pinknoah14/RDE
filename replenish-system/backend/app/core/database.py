@@ -106,6 +106,31 @@ SYSTEM_CONFIG_SEED = [
         "관리자 PIN",
         "4~8자리 숫자. 빈 값이면 PIN 없이 접속. 설정 후 재접속 필요.",
     ),
+    # CSV_COLUMNS — 재고 CSV 컬럼명
+    ("col_inv_sku",           "상품코드",        "TEXT", "CSV_COLUMNS", "재고CSV: SKU 컬럼명",           None),
+    ("col_inv_sku_name",      "센터상품명",      "TEXT", "CSV_COLUMNS", "재고CSV: 상품명 컬럼명",        None),
+    ("col_inv_center",        "센터",            "TEXT", "CSV_COLUMNS", "재고CSV: 센터 컬럼명",          None),
+    ("col_inv_bin",           "지번",            "TEXT", "CSV_COLUMNS", "재고CSV: 지번 컬럼명",          None),
+    ("col_inv_zone",          "존",              "TEXT", "CSV_COLUMNS", "재고CSV: 존 컬럼명",            None),
+    ("col_inv_pickable",      "피킹가능",        "TEXT", "CSV_COLUMNS", "재고CSV: 피킹가능여부 컬럼명",  None),
+    ("col_inv_pickable_yes",  "피킹가능",        "TEXT", "CSV_COLUMNS", "재고CSV: 피킹가능 값(value)",   None),
+    ("col_inv_pickable_no",   "피킹불가",        "TEXT", "CSV_COLUMNS", "재고CSV: 피킹불가 값(value)",   None),
+    ("col_inv_avail_qty",     "가용수량",        "TEXT", "CSV_COLUMNS", "재고CSV: 가용수량 컬럼명",      None),
+    ("col_inv_unit_size",     "입수",            "TEXT", "CSV_COLUMNS", "재고CSV: 입수 컬럼명",          None),
+    ("col_inv_box_count",     "박스수",          "TEXT", "CSV_COLUMNS", "재고CSV: 박스수 컬럼명",        None),
+    ("col_inv_box_remain",    "박스잔량",        "TEXT", "CSV_COLUMNS", "재고CSV: 박스잔량 컬럼명",      None),
+    ("col_inv_deadline_date", "센터 판매마감일", "TEXT", "CSV_COLUMNS", "재고CSV: 판매마감일 컬럼명",    None),
+    ("col_inv_deadline_days", "판매마감일수",    "TEXT", "CSV_COLUMNS", "재고CSV: 판매마감일수 컬럼명",  None),
+    ("col_inv_shelf_days",    "유통가능일수",    "TEXT", "CSV_COLUMNS", "재고CSV: 유통가능일수 컬럼명",  None),
+    ("col_inv_receipt_date",  "입고일자",        "TEXT", "CSV_COLUMNS", "재고CSV: 입고일자 컬럼명",      None),
+    # CSV_COLUMNS — 피벗 CSV 컬럼명
+    ("col_pivot_sku",         "상품코드",        "TEXT", "CSV_COLUMNS", "피벗CSV: SKU 컬럼명",           None),
+    ("col_pivot_center",      "센터",            "TEXT", "CSV_COLUMNS", "피벗CSV: 센터 컬럼명",          None),
+    # CSV_COLUMNS — 출고 CSV 컬럼명
+    ("col_out_sku",           "상품코드",        "TEXT", "CSV_COLUMNS", "출고CSV: SKU 컬럼명",           None),
+    ("col_out_center",        "센터",            "TEXT", "CSV_COLUMNS", "출고CSV: 센터 컬럼명",          None),
+    ("col_out_date",          "판매일자",        "TEXT", "CSV_COLUMNS", "출고CSV: 판매일자 컬럼명",      None),
+    ("col_out_qty",           "판매수량",        "TEXT", "CSV_COLUMNS", "출고CSV: 판매수량 컬럼명",      None),
 ]
 
 

@@ -32,6 +32,53 @@ DTYPE_OVERRIDES = {
     "박스잔량":       pl.Int32,
 }
 
+# 시스템 설정 키 → 내부(표준) 컬럼명 / 피킹가능 값 기본값
+INTERNAL_COL_MAP: dict[str, str] = {
+    "col_inv_sku":           "상품코드",
+    "col_inv_sku_name":      "센터상품명",
+    "col_inv_center":        "센터",
+    "col_inv_bin":           "지번",
+    "col_inv_zone":          "존",
+    "col_inv_pickable":      "피킹가능",
+    "col_inv_pickable_yes":  "피킹가능",
+    "col_inv_pickable_no":   "피킹불가",
+    "col_inv_avail_qty":     "가용수량",
+    "col_inv_unit_size":     "입수",
+    "col_inv_box_count":     "박스수",
+    "col_inv_box_remain":    "박스잔량",
+    "col_inv_deadline_date": "센터 판매마감일",
+    "col_inv_deadline_days": "판매마감일수",
+    "col_inv_shelf_days":    "유통가능일수",
+    "col_inv_receipt_date":  "입고일자",
+    "col_pivot_sku":         "상품코드",
+    "col_pivot_center":      "센터",
+    "col_out_sku":           "상품코드",
+    "col_out_center":        "센터",
+    "col_out_date":          "판매일자",
+    "col_out_qty":           "판매수량",
+}
+
+# 재고 CSV 컬럼명 키 순서 (REQUIRED_COLUMNS 대응)
+_INV_COL_KEYS = [
+    "col_inv_sku", "col_inv_sku_name", "col_inv_center",
+    "col_inv_bin", "col_inv_zone", "col_inv_pickable",
+    "col_inv_avail_qty", "col_inv_unit_size", "col_inv_box_count",
+    "col_inv_box_remain", "col_inv_deadline_date", "col_inv_deadline_days",
+    "col_inv_shelf_days", "col_inv_receipt_date",
+]
+
+
+def get_csv_col_map(session: Session) -> dict[str, str]:
+    """DB 설정에서 CSV 컬럼명 매핑을 로드. 미설정 키는 INTERNAL_COL_MAP 기본값 사용."""
+    result: dict[str, str] = {}
+    for key, default in INTERNAL_COL_MAP.items():
+        try:
+            val = get_config(key, session)
+            result[key] = val if val else default
+        except KeyError:
+            result[key] = default
+    return result
+
 
 def decode_csv_bytes(raw: bytes, encodings: tuple[str, ...] = ("cp949", "utf-8", "utf-8-sig")) -> str:
     """CP949 → UTF-8 순서로 디코딩 시도. 모두 실패 시 ValueError."""
@@ -61,31 +108,54 @@ def load_inventory_csv(path: str) -> pl.DataFrame:
     )
 
 
-def load_inventory_csv_from_bytes(content: bytes) -> pl.DataFrame:
+def load_inventory_csv_from_bytes(content: bytes, col_map: dict[str, str] | None = None) -> pl.DataFrame:
     raw = decode_csv_bytes(content)
+
+    # 실제 컬럼명(WMS 헤더) 목록과 내부명으로의 rename 맵 구성
+    if col_map:
+        actual_cols = [col_map.get(k, INTERNAL_COL_MAP[k]) for k in _INV_COL_KEYS]
+        rename_map = {
+            col_map[k]: INTERNAL_COL_MAP[k]
+            for k in _INV_COL_KEYS
+            if col_map.get(k) and col_map[k] != INTERNAL_COL_MAP[k]
+        }
+        actual_dtype_overrides = {
+            col_map.get(k, INTERNAL_COL_MAP[k]): DTYPE_OVERRIDES[INTERNAL_COL_MAP[k]]
+            for k in _INV_COL_KEYS
+            if INTERNAL_COL_MAP[k] in DTYPE_OVERRIDES
+        }
+    else:
+        actual_cols = REQUIRED_COLUMNS
+        rename_map = {}
+        actual_dtype_overrides = DTYPE_OVERRIDES
+
     try:
-        return pl.read_csv(
+        df = pl.read_csv(
             io.StringIO(raw),
-            columns=REQUIRED_COLUMNS,
-            schema_overrides=DTYPE_OVERRIDES,
+            columns=actual_cols,
+            schema_overrides=actual_dtype_overrides,
             null_values=["", " "],
         )
     except Exception as parse_err:
         # 누락 컬럼 목록을 명시해 사용자가 원인을 파악할 수 있도록 한다.
         try:
             header_df = pl.read_csv(io.StringIO(raw), n_rows=0, infer_schema_length=0)
-            actual = set(header_df.columns)
-            missing = [c for c in REQUIRED_COLUMNS if c not in actual]
+            actual_set = set(header_df.columns)
+            missing = [c for c in actual_cols if c not in actual_set]
             if missing:
                 raise ValueError(
                     f"재고 CSV 필수 컬럼 누락: {', '.join(missing)}\n"
-                    f"업로드한 파일의 컬럼: {', '.join(sorted(actual))}"
+                    f"업로드한 파일의 컬럼: {', '.join(sorted(actual_set))}"
                 ) from parse_err
         except ValueError:
             raise
         except Exception:
             pass
         raise parse_err
+
+    if rename_map:
+        df = df.rename(rename_map)
+    return df
 
 
 def parse_bin_id(bin_id: str) -> dict | None:
@@ -121,7 +191,7 @@ def extract_zone_prefix(bin_id: str) -> str:
     return "UNKNOWN"
 
 
-def classify_inventory(df: pl.DataFrame, session: Session) -> dict[str, pl.DataFrame]:
+def classify_inventory(df: pl.DataFrame, session: Session, col_map: dict[str, str] | None = None) -> dict[str, pl.DataFrame]:
     """
     재고 CSV를 피킹존 / 보충존 / 보류존으로 분류.
     - 보류존: bin_id_pattern 미매칭 or exclude_zone_patterns 매칭
@@ -130,6 +200,9 @@ def classify_inventory(df: pl.DataFrame, session: Session) -> dict[str, pl.DataF
     """
     bin_pattern = get_config("bin_id_pattern", session)
     exclude_patterns = get_config_list("exclude_zone_patterns", session, cast=str)
+
+    pickable_yes = col_map["col_inv_pickable_yes"] if col_map else INTERNAL_COL_MAP["col_inv_pickable_yes"]
+    pickable_no  = col_map["col_inv_pickable_no"]  if col_map else INTERNAL_COL_MAP["col_inv_pickable_no"]
 
     compiled = re.compile(bin_pattern)
 
@@ -147,9 +220,9 @@ def classify_inventory(df: pl.DataFrame, session: Session) -> dict[str, pl.DataF
     hold_df = df.filter(exclude_mask)
     active_df = df.filter(~exclude_mask)
 
-    picking_df = active_df.filter(pl.col("피킹가능") == "피킹가능")
+    picking_df = active_df.filter(pl.col("피킹가능") == pickable_yes)
 
-    replenish_raw = active_df.filter(pl.col("피킹가능") == "피킹불가")
+    replenish_raw = active_df.filter(pl.col("피킹가능") == pickable_no)
     # v1.6: 판매마감일수 <= 0 보충존 행 제거
     replenish_df = replenish_raw.filter(
         pl.col("판매마감일수").is_not_null() & (pl.col("판매마감일수") > 0)
@@ -270,19 +343,27 @@ def detect_multi_picking_bins(picking_df: pl.DataFrame, session: Session) -> pl.
         .filter(pl.col("cnt") > 1)
     )
 
-    for row in multi.iter_rows(named=True):
-        sku_id = row["상품코드"]
-        center_cd = row["센터"]
-        bins = row["bins"]
-        history = session.exec(
+    if multi.height == 0:
+        return multi
+
+    multi_sku_ids = multi["상품코드"].to_list()
+    multi_center_cds = multi["센터"].to_list()
+
+    history_map: dict[tuple[str, str], SkuPickingHistory] = {
+        (h.sku_id, h.center_cd): h
+        for h in session.exec(
             select(SkuPickingHistory).where(
-                SkuPickingHistory.sku_id == sku_id,
-                SkuPickingHistory.center_cd == center_cd,
+                SkuPickingHistory.sku_id.in_(multi_sku_ids),
+                SkuPickingHistory.center_cd.in_(multi_center_cds),
             )
-        ).first()
+        ).all()
+    }
+
+    for row in multi.iter_rows(named=True):
+        history = history_map.get((row["상품코드"], row["센터"]))
         if history:
             history.has_multi_bin = True
-            history.alt_bin_ids = json.dumps(bins, ensure_ascii=False)
+            history.alt_bin_ids = json.dumps(row["bins"], ensure_ascii=False)
 
     session.commit()
     return multi

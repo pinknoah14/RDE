@@ -3,6 +3,7 @@ from datetime import datetime
 
 import polars as pl
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from sqlalchemy import insert as sa_insert
 from sqlmodel import Session, select
 
 from app.core.dependencies import get_session
@@ -18,6 +19,7 @@ from app.services.csv_parser import (
     detect_multi_picking_bins,
     detect_new_skus,
     detect_unknown_zones,
+    get_csv_col_map,
     load_inventory_csv_from_bytes,
     restore_missing_picking_bins,
     update_picking_history,
@@ -36,18 +38,22 @@ def save_replenish_snapshot(
     session: Session,
 ) -> None:
     """보충존 재고 스냅샷을 DB에 저장. run_algorithm()이 읽는다."""
-    for row in replenish_df.iter_rows(named=True):
-        session.add(ReplenishBinSnapshot(
-            upload_session_id=upload_session_id,
-            center_cd=center_cd,
-            sku_id=row["상품코드"],
-            sku_name=row.get("센터상품명"),
-            replenish_bin=row["지번"],
-            avail_qty=int(row.get("가용수량") or 0),
-            unit_size=int(row.get("입수") or 1),
-            deadline_days=row.get("판매마감일수"),
-            receipt_date=str(row["입고일자"]) if row.get("입고일자") else None,
-        ))
+    rows = [
+        {
+            "upload_session_id": upload_session_id,
+            "center_cd":         center_cd,
+            "sku_id":            row["상품코드"],
+            "sku_name":          row.get("센터상품명"),
+            "replenish_bin":     row["지번"],
+            "avail_qty":         int(row.get("가용수량") or 0),
+            "unit_size":         int(row.get("입수") or 1),
+            "deadline_days":     row.get("판매마감일수"),
+            "receipt_date":      str(row["입고일자"]) if row.get("입고일자") else None,
+        }
+        for row in replenish_df.iter_rows(named=True)
+    ]
+    if rows:
+        session.execute(sa_insert(ReplenishBinSnapshot), rows)
     session.commit()
 
 
@@ -59,13 +65,14 @@ async def upload_inventory(
     session: Session = Depends(get_session),
 ):
     content = await file.read()
+    col_map = get_csv_col_map(session)
     try:
-        df = load_inventory_csv_from_bytes(content)
+        df = load_inventory_csv_from_bytes(content, col_map)
     except Exception as e:
         logger.error("재고 CSV 파싱 실패", file=file.filename, error=str(e))
         raise RDEException(code="UPLOAD_PARSE_ERROR", message=str(e), status_code=400)
 
-    classified = classify_inventory(df, session)
+    classified = classify_inventory(df, session, col_map)
     picking_df = classified["picking"]
     replenish_df = classified["replenish"]
 
@@ -156,8 +163,9 @@ async def upload_outbound(
     session: Session = Depends(get_session),
 ):
     content = await file.read()
+    col_map = get_csv_col_map(session)
     try:
-        df = parse_outbound_csv(content)
+        df = parse_outbound_csv(content, col_map)
     except Exception as e:
         raise RDEException(code="UPLOAD_PARSE_ERROR", message=str(e), status_code=400)
     return _save_sales(df, file.filename or "outbound.csv", "OUTBOUND", center_cd, uploaded_by, session)
@@ -171,8 +179,9 @@ async def upload_pivot_sales(
     session: Session = Depends(get_session),
 ):
     content = await file.read()
+    col_map = get_csv_col_map(session)
     try:
-        df = parse_pivot_csv(content)
+        df = parse_pivot_csv(content, col_map)
     except Exception as e:
         raise RDEException(code="UPLOAD_PARSE_ERROR", message=str(e), status_code=400)
     return _save_sales(df, file.filename or "pivot.csv", "PIVOT", center_cd, uploaded_by, session)

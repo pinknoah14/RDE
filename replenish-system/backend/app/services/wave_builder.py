@@ -129,6 +129,23 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
         ).all()
     }
 
+    # 루프 내 N+1 방지: wave 후보와 오늘 판매량을 미리 일괄 로드
+    existing_candidates_map: dict[str, ReplenishCandidate] = {
+        c.sku_id: c
+        for c in session.exec(
+            select(ReplenishCandidate).where(ReplenishCandidate.wave_id == wave_id)
+        ).all()
+    }
+    today_sales_map: dict[str, int] = {
+        h.sku_id: (h.sales_qty or 0)
+        for h in session.exec(
+            select(DailySalesHistory).where(
+                DailySalesHistory.center_cd == center_cd,
+                DailySalesHistory.sales_date == date_type.today(),
+            )
+        ).all()
+    }
+
     result = AlgorithmResult()
     no_replen: list[str] = []
     new_skus_seen: set[str] = set()
@@ -207,25 +224,13 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
         slack_channel = zc.slack_channel if zc else ""
         list_section = zc.list_section if zc else "MAIN"
 
-        existing = session.exec(
-            select(ReplenishCandidate).where(
-                ReplenishCandidate.wave_id == wave_id,
-                ReplenishCandidate.sku_id == sku_id,
-            )
-        ).first()
+        existing = existing_candidates_map.get(sku_id)
 
         flags_json = json.dumps(flags, ensure_ascii=False)
         matched_bins_json = json.dumps(matched, ensure_ascii=False)
         eta_val = None if eta_hours == float("inf") else eta_hours
 
-        today_row = session.exec(
-            select(DailySalesHistory).where(
-                DailySalesHistory.sku_id == sku_id,
-                DailySalesHistory.center_cd == center_cd,
-                DailySalesHistory.sales_date == date_type.today(),
-            )
-        ).first()
-        today_sales = today_row.sales_qty if today_row else 0
+        today_sales = today_sales_map.get(sku_id, 0)
 
         if existing:
             existing.risk_score = float(score)
