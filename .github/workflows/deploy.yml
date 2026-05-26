@@ -5,6 +5,12 @@ on:
     branches:
       - main
       - claude/**   # AI 작업 브랜치 자동 배포
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "배포할 브랜치"
+        required: false
+        default: "main"
 
 jobs:
   deploy:
@@ -21,7 +27,7 @@ jobs:
           timeout: 300s
           script: |
             set -e
-            BRANCH="${{ github.ref_name }}"
+            BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
             echo "브랜치: $BRANCH"
             ~/RDE/deploy.sh "$BRANCH"
 
