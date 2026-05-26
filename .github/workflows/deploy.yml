@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - claude/**   # AI 작업 브랜치 자동 배포
+      - claude/**
   workflow_dispatch:
     inputs:
       branch:
@@ -18,26 +18,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: SSH 접속 후 배포 실행
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          timeout: 300s
-          script: |
-            set -e
-            BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
-            echo "브랜치: $BRANCH"
-            ~/RDE/deploy.sh "$BRANCH"
+      - name: SSH 키 설정
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts
 
-      - name: 헬스체크 (서버 내부에서 확인)
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          script: |
+      - name: 배포 실행
+        run: |
+          BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} \
+            "~/RDE/deploy.sh '$BRANCH'"
+
+      - name: 헬스체크
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} << 'EOF'
             echo "백엔드 헬스체크..."
             for i in 1 2 3 4 5; do
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/dashboard)
@@ -48,18 +46,9 @@ jobs:
               echo "재시도 $i/5 (HTTP $STATUS)..."
               sleep 5
             done
-            if [ "$STATUS" != "200" ]; then
-              echo "✗ 백엔드 헬스체크 실패"
-              sudo journalctl -u rde-backend.service -n 30 --no-pager
-              exit 1
-            fi
+            [ "$STATUS" = "200" ] || { echo "✗ 백엔드 헬스체크 실패"; exit 1; }
 
             echo "프론트엔드 헬스체크..."
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
-            if [ "$STATUS" = "200" ]; then
-              echo "✓ 프론트엔드 정상 (HTTP $STATUS)"
-            else
-              echo "✗ 프론트엔드 헬스체크 실패 (HTTP $STATUS)"
-              pm2 logs rde-frontend --lines 20 --nostream
-              exit 1
-            fi
+            [ "$STATUS" = "200" ] && echo "✓ 프론트엔드 정상" || { echo "✗ 프론트엔드 실패 (HTTP $STATUS)"; exit 1; }
+          EOF
