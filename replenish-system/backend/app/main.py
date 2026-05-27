@@ -25,6 +25,7 @@ from app.api import (
     admin,
     audit,
     events,
+    webhook,
 )
 
 
@@ -77,3 +78,4 @@ app.include_router(slack.router,         prefix="/api/v1/queue",         tags=["
 app.include_router(dashboard.router,     prefix="/api/v1/dashboard",     tags=["dashboard"])
 app.include_router(admin.router,         prefix="/api/v1/admin",         tags=["admin"])
 app.include_router(audit.router,         prefix="/api/v1/audit-log",     tags=["audit"])
+app.include_router(webhook.router,       prefix="/api/webhook",           tags=["webhook"])
