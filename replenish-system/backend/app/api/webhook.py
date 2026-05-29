@@ -8,14 +8,14 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 router = APIRouter()
 
-_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 _DEPLOY_SCRIPT = os.path.expanduser("~/RDE/deploy.sh")
 
 
 def _verify(payload: bytes, sig_header: str) -> bool:
-    if not _SECRET:
+    secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
+    if not secret:
         return True  # 시크릿 미설정 시 검증 생략 (개발용)
-    mac = _hmac.new(_SECRET.encode(), payload, hashlib.sha256).hexdigest()
+    mac = _hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
     return _hmac.compare_digest(f"sha256={mac}", sig_header)
 
 

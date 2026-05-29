@@ -12,6 +12,7 @@ from app.core.logging_config import get_logger
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation
 from app.models.wave import Wave
 from app.models.zone import ZoneConfig
+from app.services.audit_service import write_audit_log
 from app.services.wave_builder import run_algorithm
 from app.services.csv_parser import extract_zone_prefix
 from app.services.state_machine import InvalidTransitionError, transition_candidate
@@ -68,6 +69,16 @@ def create_wave(body: WaveCreateRequest, session: Session = Depends(get_session)
     session.commit()
     session.refresh(wave)
     logger.info("웨이브 생성", wave_id=wave.wave_id, wave_type=body.wave_type, max_candidates=max_candidates)
+
+    write_audit_log(
+        entity_type="wave",
+        entity_id=wave.wave_id,
+        action="created",
+        actor="관리자",
+        after={"wave_name": wave.wave_name, "wave_type": body.wave_type},
+        session=session,
+    )
+    session.commit()
 
     algo = run_algorithm(body.center_cd, wave.wave_id, session)
 
@@ -195,11 +206,21 @@ def update_candidate(
     if body.list_section is not None:
         if body.list_section not in ("MAIN", "SUB"):
             raise RDEException(code="INVALID_SECTION", message="list_section은 MAIN 또는 SUB", status_code=400)
+        before_section = candidate.list_section
         candidate.list_section = body.list_section
         for task in session.exec(
             select(ReplenishConfirmedTask).where(ReplenishConfirmedTask.candidate_id == candidate_id)
         ).all():
             task.list_section = body.list_section
+        write_audit_log(
+            entity_type="candidate",
+            entity_id=candidate_id,
+            action="section_change",
+            actor="관리자",
+            before={"list_section": before_section},
+            after={"list_section": body.list_section},
+            session=session,
+        )
 
     if body.modified_qty is not None:
         try:
@@ -309,6 +330,14 @@ def _confirm_wave_internal(
 
     wave.wave_status = "CONFIRMED"
     wave.confirmed_at = datetime.utcnow()
+    write_audit_log(
+        entity_type="wave",
+        entity_id=wave_id,
+        action="confirmed",
+        actor=confirmed_by,
+        after={"tasks_created": tasks_created},
+        session=session,
+    )
     session.commit()
     logger.info("웨이브 확정", wave_id=wave_id, tasks_created=tasks_created)
     return {"wave_id": wave_id, "tasks_created": tasks_created}
@@ -347,6 +376,16 @@ def create_urgent_wave_from_dashboard(
     session.commit()
     session.refresh(wave)
     logger.info("긴급 웨이브 생성", wave_id=wave.wave_id)
+
+    write_audit_log(
+        entity_type="wave",
+        entity_id=wave.wave_id,
+        action="created",
+        actor="관리자",
+        after={"wave_name": wave.wave_name, "wave_type": "URGENT"},
+        session=session,
+    )
+    session.commit()
 
     algo = run_algorithm(body.center_cd, wave.wave_id, session)
 
