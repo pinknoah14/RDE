@@ -3,14 +3,13 @@ name: Deploy to Lightsail
 on:
   push:
     branches:
-      - main
       - claude/**
   workflow_dispatch:
     inputs:
       branch:
         description: "배포할 브랜치"
         required: false
-        default: "main"
+        default: "claude/review-design-docs-dzIPq"
 
 jobs:
   deploy:
@@ -30,7 +29,7 @@ jobs:
           BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} \
-            "~/RDE/deploy.sh '$BRANCH'"
+            "~/replenish-system/deploy.sh '$BRANCH'"
 
       - name: 헬스체크
         run: |
