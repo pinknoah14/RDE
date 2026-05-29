@@ -7,7 +7,7 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 1,
-      "elapsed_s": 0.38,
+      "elapsed_s": 0.1,
       "picking_cnt": 248,
       "candidates": 229,
       "critical": 0,
@@ -23,7 +23,7 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 2,
-      "elapsed_s": 0.44,
+      "elapsed_s": 0.08,
       "picking_cnt": 252,
       "candidates": 238,
       "critical": 0,
@@ -39,10 +39,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 3,
-      "elapsed_s": 0.48,
-      "picking_cnt": 149,
+      "elapsed_s": 0.1,
+      "picking_cnt": 250,
       "candidates": 240,
-      "critical": 0,
+      "critical": 95,
       "approved": 240,
       "confirmed": true,
       "batched": 44,
@@ -55,10 +55,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 4,
-      "elapsed_s": 0.42,
-      "picking_cnt": 247,
+      "elapsed_s": 0.08,
+      "picking_cnt": 259,
       "candidates": 243,
-      "critical": 0,
+      "critical": 11,
       "approved": 243,
       "confirmed": true,
       "batched": 46,
@@ -71,10 +71,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 5,
-      "elapsed_s": 0.43,
-      "picking_cnt": 241,
+      "elapsed_s": 0.08,
+      "picking_cnt": 261,
       "candidates": 244,
-      "critical": 0,
+      "critical": 15,
       "approved": 244,
       "confirmed": true,
       "batched": 46,
@@ -87,10 +87,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 6,
-      "elapsed_s": 0.45,
-      "picking_cnt": 237,
+      "elapsed_s": 0.08,
+      "picking_cnt": 262,
       "candidates": 245,
-      "critical": 0,
+      "critical": 21,
       "approved": 245,
       "confirmed": true,
       "batched": 48,
@@ -103,10 +103,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 7,
-      "elapsed_s": 0.48,
-      "picking_cnt": 244,
+      "elapsed_s": 0.09,
+      "picking_cnt": 265,
       "candidates": 247,
-      "critical": 0,
+      "critical": 20,
       "approved": 247,
       "confirmed": true,
       "batched": 48,
@@ -119,10 +119,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 8,
-      "elapsed_s": 0.49,
-      "picking_cnt": 238,
+      "elapsed_s": 0.09,
+      "picking_cnt": 265,
       "candidates": 248,
-      "critical": 0,
+      "critical": 22,
       "approved": 248,
       "confirmed": true,
       "batched": 48,
@@ -135,10 +135,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 9,
-      "elapsed_s": 0.58,
-      "picking_cnt": 240,
+      "elapsed_s": 0.09,
+      "picking_cnt": 265,
       "candidates": 248,
-      "critical": 0,
+      "critical": 23,
       "approved": 248,
       "confirmed": true,
       "batched": 48,
@@ -151,10 +151,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 10,
-      "elapsed_s": 0.52,
-      "picking_cnt": 236,
+      "elapsed_s": 0.14,
+      "picking_cnt": 266,
       "candidates": 248,
-      "critical": 0,
+      "critical": 27,
       "approved": 248,
       "confirmed": true,
       "batched": 48,
@@ -167,10 +167,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 11,
-      "elapsed_s": 0.48,
-      "picking_cnt": 235,
+      "elapsed_s": 0.09,
+      "picking_cnt": 267,
       "candidates": 249,
-      "critical": 0,
+      "critical": 30,
       "approved": 249,
       "confirmed": true,
       "batched": 48,
@@ -183,10 +183,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 12,
-      "elapsed_s": 0.5,
-      "picking_cnt": 235,
+      "elapsed_s": 0.09,
+      "picking_cnt": 266,
       "candidates": 249,
-      "critical": 0,
+      "critical": 26,
       "approved": 249,
       "confirmed": true,
       "batched": 48,
@@ -199,10 +199,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 13,
-      "elapsed_s": 0.53,
-      "picking_cnt": 229,
+      "elapsed_s": 0.09,
+      "picking_cnt": 268,
       "candidates": 250,
-      "critical": 0,
+      "critical": 32,
       "approved": 250,
       "confirmed": true,
       "batched": 48,
@@ -215,10 +215,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 14,
-      "elapsed_s": 0.51,
-      "picking_cnt": 225,
+      "elapsed_s": 0.09,
+      "picking_cnt": 268,
       "candidates": 250,
-      "critical": 0,
+      "critical": 34,
       "approved": 250,
       "confirmed": true,
       "batched": 48,
@@ -231,10 +231,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 15,
-      "elapsed_s": 0.51,
-      "picking_cnt": 228,
+      "elapsed_s": 0.09,
+      "picking_cnt": 269,
       "candidates": 251,
-      "critical": 0,
+      "critical": 35,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -247,10 +247,10 @@
       "interval": 30,
       "wave_type": "REGULAR",
       "wave_id": 16,
-      "elapsed_s": 0.52,
-      "picking_cnt": 225,
+      "elapsed_s": 0.09,
+      "picking_cnt": 269,
       "candidates": 251,
-      "critical": 0,
+      "critical": 39,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -263,10 +263,10 @@
       "interval": 15,
       "wave_type": "REGULAR",
       "wave_id": 17,
-      "elapsed_s": 0.53,
-      "picking_cnt": 229,
+      "elapsed_s": 0.09,
+      "picking_cnt": 269,
       "candidates": 251,
-      "critical": 0,
+      "critical": 35,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -279,10 +279,10 @@
       "interval": 15,
       "wave_type": "REGULAR",
       "wave_id": 18,
-      "elapsed_s": 0.53,
-      "picking_cnt": 227,
+      "elapsed_s": 0.09,
+      "picking_cnt": 271,
       "candidates": 251,
-      "critical": 0,
+      "critical": 40,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -295,10 +295,10 @@
       "interval": 15,
       "wave_type": "REGULAR",
       "wave_id": 19,
-      "elapsed_s": 0.55,
-      "picking_cnt": 228,
+      "elapsed_s": 0.1,
+      "picking_cnt": 271,
       "candidates": 251,
-      "critical": 0,
+      "critical": 41,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -311,10 +311,10 @@
       "interval": 15,
       "wave_type": "REGULAR",
       "wave_id": 20,
-      "elapsed_s": 0.55,
-      "picking_cnt": 222,
+      "elapsed_s": 0.09,
+      "picking_cnt": 271,
       "candidates": 251,
-      "critical": 0,
+      "critical": 44,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -327,10 +327,10 @@
       "interval": 15,
       "wave_type": "REGULAR",
       "wave_id": 21,
-      "elapsed_s": 0.57,
-      "picking_cnt": 224,
+      "elapsed_s": 0.1,
+      "picking_cnt": 271,
       "candidates": 251,
-      "critical": 0,
+      "critical": 40,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -343,10 +343,10 @@
       "interval": 15,
       "wave_type": "REGULAR",
       "wave_id": 22,
-      "elapsed_s": 0.58,
-      "picking_cnt": 222,
+      "elapsed_s": 0.17,
+      "picking_cnt": 271,
       "candidates": 251,
-      "critical": 0,
+      "critical": 38,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -359,10 +359,10 @@
       "interval": 15,
       "wave_type": "REGULAR",
       "wave_id": 23,
-      "elapsed_s": 0.71,
-      "picking_cnt": 222,
+      "elapsed_s": 0.09,
+      "picking_cnt": 271,
       "candidates": 251,
-      "critical": 0,
+      "critical": 41,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -375,10 +375,10 @@
       "interval": 15,
       "wave_type": "REGULAR",
       "wave_id": 24,
-      "elapsed_s": 0.6,
-      "picking_cnt": 224,
+      "elapsed_s": 0.12,
+      "picking_cnt": 271,
       "candidates": 251,
-      "critical": 0,
+      "critical": 42,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -391,10 +391,10 @@
       "interval": 15,
       "wave_type": "REGULAR",
       "wave_id": 25,
-      "elapsed_s": 0.6,
-      "picking_cnt": 215,
+      "elapsed_s": 0.1,
+      "picking_cnt": 271,
       "candidates": 251,
-      "critical": 0,
+      "critical": 46,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -407,10 +407,10 @@
       "interval": 15,
       "wave_type": "REGULAR",
       "wave_id": 26,
-      "elapsed_s": 0.62,
-      "picking_cnt": 224,
+      "elapsed_s": 0.1,
+      "picking_cnt": 271,
       "candidates": 251,
-      "critical": 0,
+      "critical": 42,
       "approved": 251,
       "confirmed": true,
       "batched": 48,
@@ -423,13 +423,13 @@
       "interval": 100,
       "wave_type": "PRESTOCK",
       "wave_id": 27,
-      "elapsed_s": 0.64,
-      "picking_cnt": 220,
+      "elapsed_s": 0.11,
+      "picking_cnt": 271,
       "candidates": 251,
-      "critical": 0,
+      "critical": 41,
       "approved": 80,
       "confirmed": true,
-      "batched": 20,
+      "batched": 19,
       "slack_ok": true,
       "missing_loc": 0,
       "prestock_cutoff": {
@@ -444,111 +444,111 @@
   "slack_preview": [
     {
       "time": "13:00",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB0605001  SKU00140  SKU00140  15NC0206001\n  2. 15RB1303001  SKU00176  SKU00176  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB0605001  SKU00140  SKU00140  15NC0206001\n  2. 15RB1303001  SKU00176  SKU00176  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "13:30",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "14:00",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "14:30",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "15:00",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "15:30",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "16:00",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "16:30",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "17:00",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "17:30",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "18:00",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "18:30",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "19:00",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "19:30",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "20:00",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "20:30",
-      "preview": "*R존 웨이브_0524_1006*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "20:45",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1053*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "21:00",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1054*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "21:15",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1054*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "21:30",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1054*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "21:45",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1054*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "22:00",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1054*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "22:15",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1054*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "22:30",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1054*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15NC0203001  SKU00248  SKU00248  15PW010500..."
     },
     {
       "time": "22:45",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1054*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "23:00",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
+      "preview": "*R존 웨이브_0529_1054*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n  2. 15RB0605001  SKU00140  SKU00140  15NC0206001\n[📦 15PW0105001]\n  3. 15RA1406001  SKU00105  SKU00105  15PW010500..."
     },
     {
       "time": "23:20",
-      "preview": "*R존 웨이브_0524_1007*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n[📦 15PW0802001]\n  2. 15RB0505001  SKU00204  SKU00204  15PW0802001\n[📦 15PW0804001]\n  3. 15NC0104001  SKU00196  SKU0..."
+      "preview": "*R존 웨이브_0529_1054*\n\n[📦 15NC0206001]\n  1. 15RB1303001  SKU00176  SKU00176  15NC0206001\n[📦 15PW0802001]\n  2. 15RB0505001  SKU00204  SKU00204  15PW0802001\n[📦 15PW0804001]\n  3. 15NC0104001  SKU00196  SKU0..."
     }
   ]
 }
