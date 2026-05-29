@@ -1,10 +1,8 @@
 #!/bin/bash
 # RDE 배포 스크립트
 # 사용법: ./deploy.sh [브랜치명]
-# 예시:   ./deploy.sh main
-#         ./deploy.sh claude/review-design-docs-dzIPq
 
-set -e  # 오류 발생 시 즉시 중단
+set -e
 
 BRANCH=${1:-main}
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -23,24 +21,29 @@ echo " 경로:   $PROJECT_DIR"
 echo " 사용자: $CURRENT_USER"
 echo "=============================="
 
-# 1. 코드 업데이트
+# ── 1. 코드 업데이트 ──────────────────────────────────────────
 echo ""
 echo "[1/5] 최신 코드 pull..."
 git -C "$PROJECT_DIR" fetch origin
 git -C "$PROJECT_DIR" checkout "$BRANCH"
 git -C "$PROJECT_DIR" pull origin "$BRANCH"
 
-# 2. 백엔드 Python 환경 준비
+# ── 2. 백엔드 Python 환경 ────────────────────────────────────
 echo ""
 echo "[2/5] 백엔드 환경 준비..."
 
-if [ ! -d "$VENV_DIR" ]; then
+# python3-venv 패키지 사전 보장 (dpkg 없으면 설치 시도)
+if ! python3 -m venv --help &>/dev/null 2>&1 || \
+   ! dpkg -s python3-venv &>/dev/null 2>&1; then
+    echo "  python3-venv 설치 중..."
+    sudo apt-get install -y --no-install-recommends python3-venv python3-pip
+fi
+
+# pip 바이너리가 없으면 venv 불완전 → 삭제 후 재생성
+if [ ! -f "$VENV_DIR/bin/pip" ]; then
     echo "  venv 생성 중..."
-    if ! python3 -m venv "$VENV_DIR" 2>/dev/null; then
-        echo "  python3-venv 없음, 설치 중..."
-        sudo apt-get install -y python3-venv python3-pip > /dev/null
-        python3 -m venv "$VENV_DIR"
-    fi
+    rm -rf "$VENV_DIR"
+    python3 -m venv "$VENV_DIR"
 fi
 
 echo "  패키지 설치 중..."
@@ -48,13 +51,13 @@ echo "  패키지 설치 중..."
 "$VENV_DIR/bin/pip" install -q -r "$BACKEND_DIR/requirements.txt"
 echo "  ✓ Python 환경 준비 완료"
 
-# 3. systemd 서비스 등록 (최초 1회)
+# ── 3. systemd 서비스 등록 ────────────────────────────────────
 echo ""
 echo "[3/5] 백엔드 서비스 설정..."
 
 if [ ! -f "$SERVICE_FILE" ]; then
     echo "  systemd 서비스 파일 생성 중..."
-    sudo tee "$SERVICE_FILE" > /dev/null <<EOF
+    sudo tee "$SERVICE_FILE" > /dev/null <<SVCEOF
 [Unit]
 Description=RDE Backend (FastAPI/uvicorn)
 After=network.target
@@ -70,7 +73,7 @@ EnvironmentFile=-$PROJECT_DIR/.env
 
 [Install]
 WantedBy=multi-user.target
-EOF
+SVCEOF
     sudo systemctl daemon-reload
     sudo systemctl enable "$BACKEND_SERVICE"
     echo "  ✓ 서비스 등록 완료"
@@ -83,24 +86,35 @@ if sudo systemctl is-active --quiet "$BACKEND_SERVICE"; then
     echo "  ✓ 백엔드 정상 실행 중"
 else
     echo "  ✗ 백엔드 시작 실패! 로그 확인:"
-    sudo journalctl -u "$BACKEND_SERVICE" -n 20 --no-pager
+    sudo journalctl -u "$BACKEND_SERVICE" -n 30 --no-pager
     exit 1
 fi
 
-# 4. 프론트엔드 빌드
+# ── 4. 프론트엔드 빌드 ───────────────────────────────────────
 echo ""
 echo "[4/5] 프론트엔드 빌드 중... (1~2분 소요)"
+
+# node_modules 없으면 설치 (package-lock.json 기준 npm ci)
+if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
+    echo "  node_modules 설치 중..."
+    cd "$FRONTEND_DIR" && npm ci --prefer-offline 2>/dev/null || npm install
+fi
+
+# 포트 정리 후 빌드
 sudo fuser -k 3000/tcp 2>/dev/null || true
 pm2 stop "$FRONTEND_PM2" 2>/dev/null || true
-cd "$FRONTEND_DIR"
-npm run build
+cd "$FRONTEND_DIR" && npm run build
 
-# 5. 프론트엔드 재시작
+# ── 5. 프론트엔드 재시작 ─────────────────────────────────────
 echo ""
 echo "[5/5] 프론트엔드 재시작..."
-pm2 restart "$FRONTEND_PM2" 2>/dev/null || pm2 start npm --name "$FRONTEND_PM2" -- start
-sleep 2
-if pm2 show "$FRONTEND_PM2" | grep -q "online"; then
+# restart 실패(미등록) → start로 폴백
+pm2 restart "$FRONTEND_PM2" 2>/dev/null || \
+    pm2 start npm --name "$FRONTEND_PM2" -- start
+pm2 save --force
+
+sleep 3
+if pm2 show "$FRONTEND_PM2" 2>/dev/null | grep -q "online"; then
     echo "  ✓ 프론트엔드 정상 실행 중"
 else
     echo "  ✗ 프론트엔드 시작 실패!"
