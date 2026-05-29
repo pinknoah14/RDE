@@ -80,6 +80,8 @@ SVCEOF
 fi
 
 echo "  백엔드 재시작 중..."
+sudo fuser -k 8000/tcp 2>/dev/null || true
+sleep 1
 sudo systemctl restart "$BACKEND_SERVICE"
 sleep 2
 if sudo systemctl is-active --quiet "$BACKEND_SERVICE"; then
