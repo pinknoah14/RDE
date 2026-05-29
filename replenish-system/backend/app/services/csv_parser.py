@@ -283,7 +283,9 @@ def restore_missing_picking_bins(
     if not restored_rows:
         return picking_df
 
-    restored_df = pl.DataFrame(restored_rows)
+    # picking_df는 DTYPE_OVERRIDES로 정수 컬럼이 Int32. dict 기반 restored_df는
+    # 기본 Int64로 추론되어 diagonal concat 시 스키마 충돌 → 동일 override 적용.
+    restored_df = pl.DataFrame(restored_rows, schema_overrides=DTYPE_OVERRIDES)
     return pl.concat([picking_df, restored_df], how="diagonal")
 
 
