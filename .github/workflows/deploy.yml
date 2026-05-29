@@ -29,7 +29,7 @@ jobs:
           BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }} \
-            "~/RDE/deploy.sh '$BRANCH'"
+            "~/replenish-system/deploy.sh '$BRANCH'"
 
       - name: 헬스체크
         run: |
