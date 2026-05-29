@@ -36,7 +36,11 @@ echo "[2/5] 백엔드 환경 준비..."
 
 if [ ! -d "$VENV_DIR" ]; then
     echo "  venv 생성 중..."
-    python3 -m venv "$VENV_DIR"
+    if ! python3 -m venv "$VENV_DIR" 2>/dev/null; then
+        echo "  python3-venv 없음, 설치 중..."
+        sudo apt-get install -y python3-venv python3-pip > /dev/null
+        python3 -m venv "$VENV_DIR"
+    fi
 fi
 
 echo "  패키지 설치 중..."
