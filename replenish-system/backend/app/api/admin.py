@@ -49,6 +49,8 @@ def verify_pin(body: PinVerifyRequest, session: Session = Depends(get_session)):
 def export_db():
     if not DB_PATH.exists():
         raise RDEException(code="DB_NOT_FOUND", message="DB 파일 없음", status_code=404)
+    with sqlite3.connect(str(DB_PATH)) as conn:
+        conn.execute("PRAGMA wal_checkpoint(FULL)")
     return FileResponse(
         path=str(DB_PATH),
         media_type="application/octet-stream",
