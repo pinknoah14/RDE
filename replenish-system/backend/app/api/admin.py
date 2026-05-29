@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from app.core.config import get_config
+from app.core.auth import get_admin_pin, issue_token
 from app.core.database import DB_PATH
 from app.core.dependencies import get_session
 from app.core.exceptions import RDEException
@@ -22,14 +22,11 @@ class PinVerifyRequest(BaseModel):
 
 @router.post("/verify-pin")
 def verify_pin(body: PinVerifyRequest, session: Session = Depends(get_session)):
-    """PIN 검증. 빈 admin_pin 설정이면 항상 통과."""
-    try:
-        stored_pin = get_config("admin_pin", session) or ""
-    except KeyError:
-        stored_pin = ""
+    """PIN 검증 + 세션 토큰 발급. 빈 admin_pin 설정이면 인증 비활성(항상 통과)."""
+    stored_pin = get_admin_pin(session)
 
     if not stored_pin:
-        return {"ok": True, "message": "PIN 미설정"}
+        return {"ok": True, "auth_required": False, "token": None, "message": "PIN 미설정"}
 
     if body.pin != stored_pin:
         return JSONResponse(
@@ -42,7 +39,7 @@ def verify_pin(body: PinVerifyRequest, session: Session = Depends(get_session)):
             },
         )
 
-    return {"ok": True}
+    return {"ok": True, "auth_required": True, "token": issue_token(stored_pin)}
 
 
 @router.get("/db-export")

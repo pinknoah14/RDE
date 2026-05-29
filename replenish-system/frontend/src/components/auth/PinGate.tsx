@@ -1,8 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
-
-const PIN_SESSION_KEY = "rde_pin_verified";
+import { api, auth } from "@/lib/api";
 
 export function PinGate({ children }: { children: React.ReactNode }) {
   const [verified, setVerified] = useState(false);
@@ -14,17 +12,16 @@ export function PinGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const session = sessionStorage.getItem(PIN_SESSION_KEY);
-    if (session === "true") {
+    // 저장된 토큰이 있으면 통과 (만료/위조 시 백엔드 401 → api.ts 가 자동 로그아웃)
+    if (auth.get()) {
       setVerified(true);
       setChecking(false);
       return;
     }
-    // PIN 미설정이면 자동 통과 — 빈 PIN으로 호출 시 ok=true 반환
+    // 빈 PIN 호출 → admin_pin 미설정이면 auth_required=false (인증 비활성, 통과)
     api.verifyPin("")
       .then((res) => {
-        if (res.ok) {
-          sessionStorage.setItem(PIN_SESSION_KEY, "true");
+        if (res.ok && res.auth_required === false) {
           setVerified(true);
         }
       })
@@ -40,7 +37,7 @@ export function PinGate({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.verifyPin(pin);
       if (res.ok) {
-        sessionStorage.setItem(PIN_SESSION_KEY, "true");
+        if (res.token) auth.set(res.token);
         setVerified(true);
       } else {
         throw new Error("INVALID");

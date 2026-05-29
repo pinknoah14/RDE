@@ -1,10 +1,13 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlmodel import Session
 
-from app.core.database import init_db
+from app.core.auth import auth_enabled, get_admin_pin, verify_token
+from app.core.database import engine, init_db
 from app.core.exceptions import (
     RDEException,
     generic_exception_handler,
@@ -56,6 +59,44 @@ app.add_exception_handler(RDEException, rde_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
+
+
+# 인증 미들웨어 — admin_pin 설정 시 모든 /api 경로에 토큰 요구.
+# (CORS 보다 먼저 등록 → CORS 가 바깥에서 감싸 401 응답에도 CORS 헤더 부착)
+_AUTH_WHITELIST_PREFIXES = ("/api/webhook", "/docs", "/redoc", "/openapi.json")
+_AUTH_WHITELIST_EXACT = {"/api/v1/admin/verify-pin"}
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
+    # CORS preflight, 로그인/웹훅/문서, 비-API 경로는 통과
+    if (
+        request.method == "OPTIONS"
+        or path in _AUTH_WHITELIST_EXACT
+        or path.startswith(_AUTH_WHITELIST_PREFIXES)
+        or not path.startswith("/api/")
+    ):
+        return await call_next(request)
+
+    with Session(engine) as session:
+        pin = get_admin_pin(session)
+    if not pin:
+        return await call_next(request)  # admin_pin 미설정 → 인증 비활성
+
+    auth_header = request.headers.get("Authorization", "")
+    token = (
+        auth_header[7:]
+        if auth_header.startswith("Bearer ")
+        else request.headers.get("X-RDE-Token", "")
+    )
+    if not verify_token(pin, token):
+        return JSONResponse(
+            status_code=401,
+            content={"ok": False, "code": "UNAUTHORIZED", "message": "인증이 필요합니다.", "detail": ""},
+        )
+    return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,

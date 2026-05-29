@@ -8,12 +8,31 @@ import type {
 } from "@/types";
 
 const BASE = "/api/v1";
+const TOKEN_KEY = "rde_auth_token";
+
+export const auth = {
+  get: () => (typeof window === "undefined" ? null : sessionStorage.getItem(TOKEN_KEY)),
+  set: (t: string) => sessionStorage.setItem(TOKEN_KEY, t),
+  clear: () => sessionStorage.removeItem(TOKEN_KEY),
+};
+
+function authHeaders(base: Record<string, string> = {}): Record<string, string> {
+  const t = auth.get();
+  return t ? { ...base, Authorization: `Bearer ${t}` } : base;
+}
+
+/** 401 → 토큰 폐기 후 로그인 화면으로 (페이지 새로고침 → PinGate 재평가) */
+function handleUnauthorized() {
+  auth.clear();
+  if (typeof window !== "undefined") window.location.reload();
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: authHeaders({ "Content-Type": "application/json", ...(options?.headers as Record<string, string>) }),
   });
+  if (res.status === 401) { handleUnauthorized(); throw new Error("인증이 필요합니다."); }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.message || err.detail || `HTTP ${res.status}`);
@@ -25,7 +44,8 @@ async function upload<T>(path: string, file: File, extra?: Record<string, string
   const fd = new FormData();
   fd.append("file", file);
   if (extra) Object.entries(extra).forEach(([k, v]) => fd.append(k, v));
-  const res = await fetch(`${BASE}${path}`, { method: "POST", body: fd });
+  const res = await fetch(`${BASE}${path}`, { method: "POST", body: fd, headers: authHeaders() });
+  if (res.status === 401) { handleUnauthorized(); throw new Error("인증이 필요합니다."); }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.message || err.detail || `HTTP ${res.status}`);
@@ -155,15 +175,15 @@ export const api = {
     request<{ deleted: string }>(`/picking-zones/${encodeURIComponent(binId)}`, { method: "DELETE" }),
 
   // DB 관리
-  exportDb: () => fetch(`${BASE}/admin/db-export`),
+  exportDb: () => fetch(`${BASE}/admin/db-export`, { headers: authHeaders() }),
   importDb: (file: File) => upload<{ message: string }>("/admin/db-import", file),
 
-  // PIN 인증
+  // PIN 인증 — verify-pin 은 화이트리스트(토큰 불필요). 성공 시 토큰 반환.
   verifyPin: (pin: string) =>
-    request<{ ok: boolean; message?: string }>("/admin/verify-pin", {
-      method: "POST",
-      body: JSON.stringify({ pin }),
-    }),
+    request<{ ok: boolean; auth_required?: boolean; token?: string | null; message?: string }>(
+      "/admin/verify-pin",
+      { method: "POST", body: JSON.stringify({ pin }) },
+    ),
 
   // 긴급 웨이브
   createUrgentWaveFromDashboard: (body: {
