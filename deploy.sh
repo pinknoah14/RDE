@@ -12,6 +12,8 @@ VENV_DIR="$BACKEND_DIR/.venv"
 BACKEND_SERVICE="rde-backend.service"
 FRONTEND_PM2="rde-frontend"
 SERVICE_FILE="/etc/systemd/system/$BACKEND_SERVICE"
+NGINX_CONF_SRC="$PROJECT_DIR/deploy/nginx-rde.conf"
+NGINX_CONF_DEST="/etc/nginx/sites-enabled/rde"
 CURRENT_USER="$(whoami)"
 
 echo "=============================="
@@ -92,9 +94,31 @@ else
     exit 1
 fi
 
-# ── 4. 프론트엔드 빌드 ───────────────────────────────────────
+# ── 4. nginx 설정 적용 ───────────────────────────────────────
 echo ""
-echo "[4/5] 프론트엔드 빌드 중... (1~2분 소요)"
+echo "[4/6] nginx 설정 적용..."
+
+if ! command -v nginx &>/dev/null; then
+    echo "  nginx 설치 중..."
+    sudo apt-get install -y --no-install-recommends nginx
+fi
+
+# sites-enabled/default 제거 (기본 설정이 client_max_body_size 1MB)
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# 설정 파일이 없거나 내용이 변경됐으면 재적용
+if ! diff -q "$NGINX_CONF_SRC" "$NGINX_CONF_DEST" &>/dev/null 2>&1; then
+    echo "  설정 파일 업데이트 중..."
+    sudo cp "$NGINX_CONF_SRC" "$NGINX_CONF_DEST"
+    sudo nginx -t && sudo systemctl reload nginx
+    echo "  ✓ nginx 설정 적용 완료"
+else
+    echo "  ✓ nginx 설정 변경 없음"
+fi
+
+# ── 5. 프론트엔드 빌드 ───────────────────────────────────────
+echo ""
+echo "[5/6] 프론트엔드 빌드 중... (1~2분 소요)"
 
 # node_modules 없으면 설치 (package-lock.json 기준 npm ci)
 if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
@@ -109,7 +133,7 @@ cd "$FRONTEND_DIR" && npm run build
 
 # ── 5. 프론트엔드 재시작 ─────────────────────────────────────
 echo ""
-echo "[5/5] 프론트엔드 재시작..."
+echo "[6/6] 프론트엔드 재시작..."
 # restart 실패(미등록) → start로 폴백
 pm2 restart "$FRONTEND_PM2" 2>/dev/null || \
     pm2 start npm --name "$FRONTEND_PM2" -- start
