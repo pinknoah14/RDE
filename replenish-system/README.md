@@ -237,6 +237,8 @@ replenish-system\
 
 | 버전 | 주요 변경 |
 |---|---|
+| v2.4 | CSV 컬럼명 22개 시스템 설정 런타임 변경, 업로드 성능 개선 (bulk insert·N+1 제거), GitHub Webhook 배포 엔드포인트, WAL checkpoint DB 내보내기 버그 수정 |
+| v2.3 | 코드 품질 정제 (Ruff 0 errors, 미사용 코드 제거, console.error → toast 통일, 타입 정확도 개선) |
 | v2.2 | README, 로깅, 환경변수 분리 |
 | v2.1 | 14:00 미할당 폭발 대응, 배치 그룹 절단 방지 |
 | v2.0 | 현장 운영 방식 반영 (배치 태그, 선보충 컷오프, 현장 Slack 형식) |
