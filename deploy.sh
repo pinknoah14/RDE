@@ -8,26 +8,71 @@ set -e  # 오류 발생 시 즉시 중단
 
 BRANCH=${1:-main}
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BACKEND_DIR="$PROJECT_DIR/replenish-system/backend"
 FRONTEND_DIR="$PROJECT_DIR/replenish-system/frontend"
+VENV_DIR="$BACKEND_DIR/.venv"
 BACKEND_SERVICE="rde-backend.service"
 FRONTEND_PM2="rde-frontend"
+SERVICE_FILE="/etc/systemd/system/$BACKEND_SERVICE"
+CURRENT_USER="$(whoami)"
 
 echo "=============================="
 echo " RDE 배포 시작"
 echo " 브랜치: $BRANCH"
 echo " 경로:   $PROJECT_DIR"
+echo " 사용자: $CURRENT_USER"
 echo "=============================="
 
 # 1. 코드 업데이트
 echo ""
-echo "[1/4] 최신 코드 pull..."
+echo "[1/5] 최신 코드 pull..."
 git -C "$PROJECT_DIR" fetch origin
 git -C "$PROJECT_DIR" checkout "$BRANCH"
 git -C "$PROJECT_DIR" pull origin "$BRANCH"
 
-# 2. 백엔드 재시작
+# 2. 백엔드 Python 환경 준비
 echo ""
-echo "[2/4] 백엔드 재시작..."
+echo "[2/5] 백엔드 환경 준비..."
+
+if [ ! -d "$VENV_DIR" ]; then
+    echo "  venv 생성 중..."
+    python3 -m venv "$VENV_DIR"
+fi
+
+echo "  패키지 설치 중..."
+"$VENV_DIR/bin/pip" install -q --upgrade pip
+"$VENV_DIR/bin/pip" install -q -r "$BACKEND_DIR/requirements.txt"
+echo "  ✓ Python 환경 준비 완료"
+
+# 3. systemd 서비스 등록 (최초 1회)
+echo ""
+echo "[3/5] 백엔드 서비스 설정..."
+
+if [ ! -f "$SERVICE_FILE" ]; then
+    echo "  systemd 서비스 파일 생성 중..."
+    sudo tee "$SERVICE_FILE" > /dev/null <<EOF
+[Unit]
+Description=RDE Backend (FastAPI/uvicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=$CURRENT_USER
+WorkingDirectory=$BACKEND_DIR
+ExecStart=$VENV_DIR/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=-$PROJECT_DIR/.env
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable "$BACKEND_SERVICE"
+    echo "  ✓ 서비스 등록 완료"
+fi
+
+echo "  백엔드 재시작 중..."
 sudo systemctl restart "$BACKEND_SERVICE"
 sleep 2
 if sudo systemctl is-active --quiet "$BACKEND_SERVICE"; then
@@ -38,18 +83,18 @@ else
     exit 1
 fi
 
-# 3. 프론트엔드 빌드 (포트 점유 프로세스 먼저 정리)
+# 4. 프론트엔드 빌드
 echo ""
-echo "[3/4] 프론트엔드 빌드 중... (1~2분 소요)"
+echo "[4/5] 프론트엔드 빌드 중... (1~2분 소요)"
 sudo fuser -k 3000/tcp 2>/dev/null || true
 pm2 stop "$FRONTEND_PM2" 2>/dev/null || true
 cd "$FRONTEND_DIR"
 npm run build
 
-# 4. 프론트엔드 재시작
+# 5. 프론트엔드 재시작
 echo ""
-echo "[4/4] 프론트엔드 재시작..."
-pm2 restart "$FRONTEND_PM2" 2>/dev/null || pm2 start "$FRONTEND_PM2"
+echo "[5/5] 프론트엔드 재시작..."
+pm2 restart "$FRONTEND_PM2" 2>/dev/null || pm2 start npm --name "$FRONTEND_PM2" -- start
 sleep 2
 if pm2 show "$FRONTEND_PM2" | grep -q "online"; then
     echo "  ✓ 프론트엔드 정상 실행 중"
