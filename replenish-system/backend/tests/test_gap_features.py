@@ -13,9 +13,10 @@ from sqlmodel import Session, SQLModel, create_engine, select
 import app.models  # noqa: F401 — 모델 등록
 from app.api.schedule import cutoff_boost, pre_break_sweep
 from app.api.slack import retry_failed
-from app.core.config import set_config
+from app.core.config import invalidate_cache
 from app.core.database import seed_system_config
 from app.core.exceptions import RDEException
+from app.models.config import SystemConfig
 from app.models.task import ReplenishConfirmedTask, ReplenishTaskQueue
 from app.models.wave import Wave
 from app.models.zone import ZoneConfig
@@ -28,6 +29,7 @@ from app.services.slack_service import (
 
 @pytest.fixture
 def db():
+    invalidate_cache()
     engine = create_engine(
         "sqlite:///:memory:", connect_args={"check_same_thread": False}
     )
@@ -45,10 +47,30 @@ def db():
         ))
         s.commit()
         yield s
+    invalidate_cache()
+
+
+def _set_cfg(db, key, value):
+    """SystemConfig 값 설정 + 캐시 무효화 (set_config 헬퍼 부재 대응)."""
+    row = db.exec(select(SystemConfig).where(SystemConfig.config_key == key)).first()
+    if row:
+        row.config_value = value
+    else:
+        db.add(SystemConfig(
+            config_key=key, config_value=value,
+            value_type="STRING", category="SLACK", description="",
+        ))
+    db.commit()
+    invalidate_cache()
 
 
 def _make_wave(db, status="CONFIRMED", wave_type="REGULAR"):
-    wave = Wave(wave_name="테스트웨이브", wave_type=wave_type, wave_status=status)
+    wave = Wave(
+        wave_name="테스트웨이브",
+        wave_type=wave_type,
+        wave_status=status,
+        target_sku_count=5,
+    )
     db.add(wave)
     db.commit()
     db.refresh(wave)
@@ -128,7 +150,7 @@ def test_post_with_retry_exhausts_and_fails():
 def test_send_marks_failed_after_exhausting_retries(db):
     wave = _make_wave(db)
     _add_task(db, wave.wave_id)
-    set_config("slack_bot_token", "xoxb-test", db)
+    _set_cfg(db, "slack_bot_token", "xoxb-test")
     with patch("app.services.slack_service.WebClient") as MockClient, \
          patch("app.services.slack_service.time.sleep"):
         MockClient.return_value.chat_postMessage.side_effect = Exception("down")
@@ -144,7 +166,7 @@ def test_send_marks_failed_after_exhausting_retries(db):
 def test_retry_failed_messages_resends_only_failed(db):
     wave = _make_wave(db)
     _add_task(db, wave.wave_id)
-    set_config("slack_bot_token", "xoxb-test", db)
+    _set_cfg(db, "slack_bot_token", "xoxb-test")
     # 1차 전송 실패 → FAILED 적재
     with patch("app.services.slack_service.WebClient") as MockClient, \
          patch("app.services.slack_service.time.sleep"):
@@ -155,8 +177,8 @@ def test_retry_failed_messages_resends_only_failed(db):
          patch("app.services.slack_service.time.sleep"):
         MockClient.return_value.chat_postMessage.return_value = {"ts": "999.000"}
         result = retry_failed_messages(wave.wave_id, db)
-    assert len(result["resent"]) >= 1
-    assert result["failed"] == []
+    assert len(result["retried"]) >= 1
+    assert result["still_failed"] == []
     remaining = db.exec(
         select(ReplenishTaskQueue).where(ReplenishTaskQueue.queue_status == "FAILED")
     ).all()
@@ -165,9 +187,10 @@ def test_retry_failed_messages_resends_only_failed(db):
 
 def test_retry_failed_without_token_noop(db):
     wave = _make_wave(db)
+    # seed 기본값에서 slack_bot_token이 빈 문자열 → 토큰 없음 분기
     result = retry_failed_messages(wave.wave_id, db)
-    assert result["resent"] == []
-    assert "bot_token" in result["message"]
+    assert result["retried"] == []
+    assert result["skipped"] == -1  # 토큰 없음 신호
 
 
 def test_retry_failed_route_404_on_missing_wave(db):
