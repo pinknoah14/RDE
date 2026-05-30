@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 import polars as pl
+from sqlalchemy import insert as sa_insert
 from sqlmodel import Session, select
 
 from app.models.sku import DailySalesHistory, SkuSalesSummary
@@ -12,7 +13,7 @@ def upsert_daily_sales(center_cd: str, sales_df: pl.DataFrame, session: Session)
     판매 DataFrame(상품코드, 센터, 판매일자, 판매수량) → daily_sales_history UPSERT.
     반환: 처리 행 수
     """
-    count = 0
+    rows_to_insert: list[dict] = []
     for row in sales_df.iter_rows(named=True):
         sku_id = row["상품코드"]
         ctr = row.get("센터") or center_cd
@@ -24,27 +25,21 @@ def upsert_daily_sales(center_cd: str, sales_df: pl.DataFrame, session: Session)
         except (ValueError, TypeError):
             continue
 
-        existing = session.exec(
-            select(DailySalesHistory).where(
-                DailySalesHistory.sku_id == sku_id,
-                DailySalesHistory.center_cd == ctr,
-                DailySalesHistory.sales_date == sales_date,
-            )
-        ).first()
+        rows_to_insert.append({
+            "sku_id": sku_id,
+            "center_cd": ctr,
+            "sales_date": sales_date,
+            "sales_qty": qty,
+        })
 
-        if existing:
-            existing.sales_qty = qty
-        else:
-            session.add(DailySalesHistory(
-                sku_id=sku_id,
-                center_cd=ctr,
-                sales_date=sales_date,
-                sales_qty=qty,
-            ))
-        count += 1
-
+    if rows_to_insert:
+        # 행별 SELECT 대신 벌크 INSERT OR REPLACE 1회 실행
+        session.execute(
+            sa_insert(DailySalesHistory).prefix_with("OR REPLACE"),
+            rows_to_insert,
+        )
     session.commit()
-    return count
+    return len(rows_to_insert)
 
 
 def _get_event_dates(sku_id: str, center_cd: str, session: Session) -> set[date]:
@@ -67,57 +62,27 @@ def _get_event_dates(sku_id: str, center_cd: str, session: Session) -> set[date]
     return event_dates
 
 
-def calculate_sales_speed(sku_id: str, center_cd: str, session: Session) -> dict:
-    """
-    최근 14일 데이터로 판매속도 계산.
-    - 품절 구간(재고=0 & 판매=0 연속) 제외
-    - 이벤트 구간 제외
-    - 트렌드: 직전7일 평균 / 이전7일 평균, CLAMP(0.5, 2.0)
-    반환: {base_daily_avg, trend_coef, adjusted_daily, recent_daily_avg}
-    """
-    today = date.today()
-    window_start = today - timedelta(days=13)
-
-    rows = session.exec(
-        select(DailySalesHistory).where(
-            DailySalesHistory.sku_id == sku_id,
-            DailySalesHistory.center_cd == center_cd,
-            DailySalesHistory.sales_date >= window_start,
-        ).order_by(DailySalesHistory.sales_date)
-    ).all()
-
-    if not rows:
+def _compute_speed_from_map(
+    sales_map: dict[date, int],
+    event_dates: set[date],
+    all_dates: list[date],
+    cutoff_recent: date,
+) -> dict:
+    if not sales_map:
         return {"base_daily_avg": 0.0, "trend_coef": 1.0, "adjusted_daily": 0.0, "recent_daily_avg": 0.0}
 
-    event_dates = _get_event_dates(sku_id, center_cd, session)
-
-    # Build dict: date → qty
-    sales_map: dict[date, int] = {r.sales_date: r.sales_qty for r in rows}
-    all_dates = [window_start + timedelta(days=i) for i in range(14)]
-
-    # Detect stockout periods: consecutive days with 0 sales (unassigned_qty also 0)
     stockout_mask: set[date] = set()
-    zero_streak: list[date] = []
-    for d in all_dates:
-        qty = sales_map.get(d, 0)
-        if qty == 0:
-            zero_streak.append(d)
-        else:
-            zero_streak = []
-    # Mark consecutive trailing zeros as stockout
     for d in reversed(all_dates):
-        qty = sales_map.get(d, 0)
-        if qty == 0:
+        if sales_map.get(d, 0) == 0:
             stockout_mask.add(d)
         else:
             break
 
     valid_days: list[int] = []
-    recent_7: list[int] = []   # days 0-6 ago
-    prior_7: list[int] = []    # days 7-13 ago
-    cutoff_recent = today - timedelta(days=7)
+    recent_7: list[int] = []
+    prior_7: list[int] = []
 
-    for i, d in enumerate(all_dates):
+    for d in all_dates:
         if d in event_dates or d in stockout_mask:
             continue
         qty = sales_map.get(d, 0)
@@ -131,11 +96,7 @@ def calculate_sales_speed(sku_id: str, center_cd: str, session: Session) -> dict
     recent_avg = sum(recent_7) / len(recent_7) if recent_7 else base_daily_avg
     prior_avg = sum(prior_7) / len(prior_7) if prior_7 else base_daily_avg
 
-    if prior_avg > 0:
-        trend_coef = max(0.5, min(2.0, recent_avg / prior_avg))
-    else:
-        trend_coef = 1.0
-
+    trend_coef = max(0.5, min(2.0, recent_avg / prior_avg)) if prior_avg > 0 else 1.0
     adjusted_daily = base_daily_avg * trend_coef
 
     return {
@@ -146,7 +107,84 @@ def calculate_sales_speed(sku_id: str, center_cd: str, session: Session) -> dict
     }
 
 
-def update_sku_sales_summary(sku_id: str, center_cd: str, session: Session) -> SkuSalesSummary:
+def calculate_sales_speed(sku_id: str, center_cd: str, session: Session) -> dict:
+    """
+    최근 14일 데이터로 판매속도 계산.
+    - 품절 구간(재고=0 & 판매=0 연속) 제외
+    - 이벤트 구간 제외
+    - 트렌드: 직전7일 평균 / 이전7일 평균, CLAMP(0.5, 2.0)
+    반환: {base_daily_avg, trend_coef, adjusted_daily, recent_daily_avg}
+    """
+    today = date.today()
+    window_start = today - timedelta(days=13)
+    all_dates = [window_start + timedelta(days=i) for i in range(14)]
+    cutoff_recent = today - timedelta(days=7)
+
+    rows = session.exec(
+        select(DailySalesHistory).where(
+            DailySalesHistory.sku_id == sku_id,
+            DailySalesHistory.center_cd == center_cd,
+            DailySalesHistory.sales_date >= window_start,
+        ).order_by(DailySalesHistory.sales_date)
+    ).all()
+
+    sales_map: dict[date, int] = {r.sales_date: r.sales_qty for r in rows}
+    event_dates = _get_event_dates(sku_id, center_cd, session)
+    return _compute_speed_from_map(sales_map, event_dates, all_dates, cutoff_recent)
+
+
+def _batch_calculate_sales_speeds(
+    center_cd: str, sku_ids: list[str], session: Session
+) -> dict[str, dict]:
+    """N개 SKU 판매속도를 쿼리 3회로 일괄 계산 (기존 2N회 대비 대폭 감소)."""
+    today = date.today()
+    window_start = today - timedelta(days=13)
+    cutoff_recent = today - timedelta(days=7)
+    all_dates = [window_start + timedelta(days=i) for i in range(14)]
+    sku_set = set(sku_ids)
+
+    # 1. center_cd + window 조건으로 전체 판매 이력 1회 조회
+    sales_rows = session.exec(
+        select(DailySalesHistory).where(
+            DailySalesHistory.center_cd == center_cd,
+            DailySalesHistory.sales_date >= window_start,
+        )
+    ).all()
+    sales_by_sku: dict[str, dict[date, int]] = {}
+    for r in sales_rows:
+        if r.sku_id in sku_set:
+            sales_by_sku.setdefault(r.sku_id, {})[r.sales_date] = r.sales_qty
+
+    # 2. 활성 이벤트 전체 1회 조회
+    cutoff_event = today - timedelta(days=14)
+    event_rows = session.exec(
+        select(Event).where(Event.end_dt >= cutoff_event)
+    ).all()
+    event_dates_by_sku: dict[str, set[date]] = {}
+    for ev in event_rows:
+        if ev.sku_id not in sku_set:
+            continue
+        d = ev.start_dt.date() if hasattr(ev.start_dt, "date") else ev.start_dt
+        end = ev.end_dt.date() if hasattr(ev.end_dt, "date") else ev.end_dt
+        s = event_dates_by_sku.setdefault(ev.sku_id, set())
+        while d <= end:
+            s.add(d)
+            d += timedelta(days=1)
+
+    return {
+        sku_id: _compute_speed_from_map(
+            sales_by_sku.get(sku_id, {}),
+            event_dates_by_sku.get(sku_id, set()),
+            all_dates,
+            cutoff_recent,
+        )
+        for sku_id in sku_ids
+    }
+
+
+def update_sku_sales_summary(
+    sku_id: str, center_cd: str, session: Session, commit: bool = True
+) -> SkuSalesSummary:
     speed = calculate_sales_speed(sku_id, center_cd, session)
 
     summary = session.exec(
@@ -172,17 +210,40 @@ def update_sku_sales_summary(sku_id: str, center_cd: str, session: Session) -> S
         )
         session.add(summary)
 
-    session.commit()
+    if commit:
+        session.commit()
     return summary
 
 
-def update_all_sales_summaries(center_cd: str, session: Session) -> int:
-    """해당 센터의 모든 SKU 판매속도 갱신. 반환: 처리 SKU 수"""
-    skus = session.exec(
-        select(DailySalesHistory.sku_id).where(
-            DailySalesHistory.center_cd == center_cd
-        ).distinct()
-    ).all()
-    for sku_id in skus:
-        update_sku_sales_summary(sku_id, center_cd, session)
-    return len(skus)
+def update_all_sales_summaries(
+    center_cd: str, session: Session, sku_ids: list[str] | None = None
+) -> int:
+    """해당 센터의 SKU 판매속도 갱신. sku_ids 지정 시 해당 SKU만 갱신. 반환: 처리 SKU 수"""
+    if sku_ids is None:
+        sku_ids = list(session.exec(
+            select(DailySalesHistory.sku_id).where(
+                DailySalesHistory.center_cd == center_cd
+            ).distinct()
+        ).all())
+
+    if not sku_ids:
+        return 0
+
+    # 배치 계산: 쿼리 2회로 전체 SKU 판매속도 계산
+    speeds = _batch_calculate_sales_speeds(center_cd, sku_ids, session)
+
+    # 벌크 INSERT OR REPLACE로 SkuSalesSummary 일괄 갱신
+    rows = [
+        {
+            "sku_id": sku_id,
+            "center_cd": center_cd,
+            "base_daily_avg": sp["base_daily_avg"],
+            "recent_daily_avg": sp["recent_daily_avg"],
+            "trend_coef": sp["trend_coef"],
+            "adjusted_daily": sp["adjusted_daily"],
+        }
+        for sku_id, sp in speeds.items()
+    ]
+    session.execute(sa_insert(SkuSalesSummary).prefix_with("OR REPLACE"), rows)
+    session.commit()
+    return len(sku_ids)

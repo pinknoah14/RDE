@@ -133,7 +133,8 @@ def _save_sales(
 ) -> dict:
     """판매 DataFrame을 daily_sales_history에 UPSERT 후 요약 갱신."""
     rows = upsert_daily_sales(center_cd, df, session)
-    sku_count = update_all_sales_summaries(center_cd, session)
+    affected_skus = df["상품코드"].unique().to_list()
+    sku_count = update_all_sales_summaries(center_cd, session, sku_ids=affected_skus)
 
     upload_record = UploadSession(
         upload_type=upload_type,

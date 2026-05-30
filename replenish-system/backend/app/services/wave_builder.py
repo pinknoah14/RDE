@@ -119,14 +119,16 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
             )
         ).all()
     }
-    blocked_sku_set: set[str] = {
-        t.sku_id
-        for t in session.exec(
-            select(ReplenishConfirmedTask).where(
-                ReplenishConfirmedTask.task_status == "BLOCKED",
-                ReplenishConfirmedTask.sku_id.in_(all_sku_ids),
-            )
-        ).all()
+    _active_tasks = session.exec(
+        select(ReplenishConfirmedTask.sku_id, ReplenishConfirmedTask.task_status).where(
+            ReplenishConfirmedTask.task_status.in_(["READY", "QUEUED", "SENT", "BLOCKED"]),
+            ReplenishConfirmedTask.sku_id.in_(all_sku_ids),
+        )
+    ).all()
+    # BLOCKED: 가중치 추가(재시도 우선순위 상향) / READY·QUEUED·SENT: 현재 진행 중이므로 제외
+    blocked_sku_set: set[str] = {t.sku_id for t in _active_tasks if t.task_status == "BLOCKED"}
+    in_progress_sku_set: set[str] = {
+        t.sku_id for t in _active_tasks if t.task_status in ("READY", "QUEUED", "SENT")
     }
 
     # 루프 내 N+1 방지: wave 후보와 오늘 판매량을 미리 일괄 로드
@@ -153,6 +155,10 @@ def run_algorithm(center_cd: str, wave_id: int, session: Session) -> AlgorithmRe
 
     for history in picking_histories:
         sku_id = history.sku_id
+
+        if sku_id in in_progress_sku_set:
+            continue
+
         picking_avail = history.last_seen_qty or 0
 
         sales = sales_map.get(sku_id)
