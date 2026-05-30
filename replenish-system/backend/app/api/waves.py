@@ -20,6 +20,7 @@ from app.services.wave_builder import run_algorithm
 from app.services.csv_parser import extract_zone_prefix
 from app.services.print_service import generate_print_html
 from app.services.state_machine import InvalidTransitionError, transition_candidate
+from app.services.verification_service import detect_done_mismatches
 from app.services.wave_builder import calculate_prestock_cutoff
 
 router = APIRouter()
@@ -462,6 +463,24 @@ def print_wave(wave_id: int, session: Session = Depends(get_session)) -> str:
     섹션 배분이 완료된 경우 작업자별 섹션으로 분류됨.
     """
     return generate_print_html(wave_id, session)
+
+
+@router.get("/{wave_id}/verify-done")
+def verify_done_tasks(
+    wave_id: int,
+    center_cd: str = Query(default="GGH1"),
+    session: Session = Depends(get_session),
+) -> Any:
+    """완료 이중검증 (GAP-04b): DONE 처리됐으나 피킹재고가 여전히 0인 태스크 탐지.
+
+    재고 CSV 재업로드 후 호출하면, 보충 완료로 표시됐지만 실제로 피킹지번에
+    재고가 반영되지 않은 불일치 건을 반환한다.
+    """
+    wave = session.get(Wave, wave_id)
+    if not wave:
+        raise RDEException(code="WAVE_NOT_FOUND", message="웨이브를 찾을 수 없습니다.", status_code=404)
+    mismatches = detect_done_mismatches(center_cd, session, wave_id=wave_id)
+    return {"wave_id": wave_id, "mismatch_count": len(mismatches), "mismatches": mismatches}
 
 
 @router.post("/urgent-from-dashboard", status_code=201)

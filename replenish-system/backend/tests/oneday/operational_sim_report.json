@@ -2,10 +2,10 @@
   "phases": {
     "phase2_critical": {
       "injection": 104,
-      "detected": 0,
-      "ratio": 0.0,
-      "status": "WARN",
-      "wave_ms": 2337,
+      "detected": 86,
+      "ratio": 0.827,
+      "status": "PASS",
+      "wave_ms": 1678,
       "total_candidates": 0,
       "non_critical_in_urgent": 0
     },
@@ -14,209 +14,233 @@
         {
           "time": "13:00",
           "type": "URGENT",
-          "wave_id": 55,
+          "wave_id": 82,
           "candidates": 0,
-          "critical": 0,
+          "critical": 4,
           "confirmed": true,
-          "wave_ms": 1969,
-          "slack_channels": [],
+          "wave_ms": 1351,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": "업무시작/할당건"
         },
         {
           "time": "14:00",
           "type": "REGULAR",
-          "wave_id": 56,
-          "candidates": 0,
-          "critical": 0,
-          "confirmed": false,
-          "wave_ms": 2862,
-          "slack_channels": [],
+          "wave_id": 83,
+          "candidates": 98,
+          "critical": 6,
+          "confirmed": true,
+          "wave_ms": 1439,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": "1차출근자투입"
         },
         {
           "time": "15:00",
           "type": "PRESTOCK",
-          "wave_id": 57,
-          "candidates": 0,
-          "critical": 0,
-          "confirmed": false,
-          "wave_ms": 2888,
-          "slack_channels": [],
+          "wave_id": 84,
+          "candidates": 68,
+          "critical": 5,
+          "confirmed": true,
+          "wave_ms": 1437,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": "선보충 1차"
         },
         {
           "time": "15:30",
           "type": "REGULAR",
-          "wave_id": 58,
-          "candidates": 0,
-          "critical": 0,
-          "confirmed": false,
-          "wave_ms": 2806,
-          "slack_channels": [],
+          "wave_id": 85,
+          "candidates": 59,
+          "critical": 5,
+          "confirmed": true,
+          "wave_ms": 1409,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": ""
         },
         {
           "time": "16:00",
           "type": "URGENT",
-          "wave_id": 59,
+          "wave_id": 86,
           "candidates": 0,
-          "critical": 0,
+          "critical": 6,
           "confirmed": true,
-          "wave_ms": 2742,
-          "slack_channels": [],
+          "wave_ms": 1395,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": "1회차 주문마감"
         },
         {
           "time": "16:30",
           "type": "REGULAR",
-          "wave_id": 60,
-          "candidates": 0,
-          "critical": 0,
-          "confirmed": false,
-          "wave_ms": 2744,
-          "slack_channels": [],
+          "wave_id": 87,
+          "candidates": 47,
+          "critical": 5,
+          "confirmed": true,
+          "wave_ms": 1393,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": ""
         },
         {
           "time": "17:00",
           "type": "PRESTOCK",
-          "wave_id": 61,
-          "candidates": 0,
+          "wave_id": 88,
+          "candidates": 17,
           "critical": 0,
-          "confirmed": false,
-          "wave_ms": 2800,
-          "slack_channels": [],
+          "confirmed": true,
+          "wave_ms": 1470,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": "선보충 2차"
         },
         {
           "time": "18:00",
           "type": "REGULAR",
-          "wave_id": 62,
-          "candidates": 0,
-          "critical": 0,
-          "confirmed": false,
-          "wave_ms": 2902,
-          "slack_channels": [],
+          "wave_id": 89,
+          "candidates": 12,
+          "critical": 1,
+          "confirmed": true,
+          "wave_ms": 1455,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": "2타임"
         },
         {
           "time": "18:30",
           "type": "REGULAR",
-          "wave_id": 63,
-          "candidates": 0,
+          "wave_id": 90,
+          "candidates": 7,
           "critical": 0,
-          "confirmed": false,
-          "wave_ms": 2448,
-          "slack_channels": [],
+          "confirmed": true,
+          "wave_ms": 1440,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": ""
         },
         {
           "time": "19:00",
           "type": "REGULAR",
-          "wave_id": 64,
-          "candidates": 0,
+          "wave_id": 91,
+          "candidates": 4,
           "critical": 0,
-          "confirmed": false,
-          "wave_ms": 2452,
-          "slack_channels": [],
+          "confirmed": true,
+          "wave_ms": 1422,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": ""
         },
         {
           "time": "19:30",
           "type": "REGULAR",
-          "wave_id": 65,
-          "candidates": 0,
+          "wave_id": 92,
+          "candidates": 2,
           "critical": 0,
-          "confirmed": false,
-          "wave_ms": 2395,
-          "slack_channels": [],
+          "confirmed": true,
+          "wave_ms": 1468,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": ""
         },
         {
           "time": "20:00",
           "type": "REGULAR",
-          "wave_id": 66,
-          "candidates": 0,
+          "wave_id": 93,
+          "candidates": 1,
           "critical": 0,
-          "confirmed": false,
-          "wave_ms": 2394,
-          "slack_channels": [],
+          "confirmed": true,
+          "wave_ms": 1362,
+          "slack_channels": [
+            "unknown_forklift"
+          ],
           "note": ""
         },
         {
           "time": "20:30",
           "type": "URGENT",
-          "wave_id": 67,
+          "wave_id": 94,
           "candidates": 0,
           "critical": 0,
           "confirmed": true,
-          "wave_ms": 2835,
+          "wave_ms": 1399,
           "slack_channels": [],
           "note": "2회차 주문마감"
         },
         {
           "time": "21:00",
           "type": "REGULAR",
-          "wave_id": 68,
+          "wave_id": 95,
           "candidates": 0,
           "critical": 0,
           "confirmed": false,
-          "wave_ms": 2464,
+          "wave_ms": 1386,
           "slack_channels": [],
           "note": "3타임"
         },
         {
           "time": "21:30",
           "type": "REGULAR",
-          "wave_id": 69,
+          "wave_id": 96,
           "candidates": 0,
           "critical": 0,
           "confirmed": false,
-          "wave_ms": 2810,
+          "wave_ms": 1327,
           "slack_channels": [],
           "note": ""
         },
         {
           "time": "22:00",
           "type": "REGULAR",
-          "wave_id": 70,
+          "wave_id": 97,
           "candidates": 0,
           "critical": 0,
           "confirmed": false,
-          "wave_ms": 2883,
+          "wave_ms": 1362,
           "slack_channels": [],
           "note": ""
         },
         {
           "time": "22:30",
           "type": "REGULAR",
-          "wave_id": 71,
+          "wave_id": 98,
           "candidates": 0,
           "critical": 0,
           "confirmed": false,
-          "wave_ms": 2396,
+          "wave_ms": 1356,
           "slack_channels": [],
           "note": ""
         },
         {
           "time": "23:00",
           "type": "URGENT",
-          "wave_id": 72,
+          "wave_id": 99,
           "candidates": 0,
           "critical": 0,
           "confirmed": true,
-          "wave_ms": 2345,
+          "wave_ms": 1404,
           "slack_channels": [],
           "note": "3회차 주문마감"
         },
         {
           "time": "23:20",
           "type": "PRESTOCK",
-          "wave_id": 73,
+          "wave_id": 100,
           "candidates": 0,
           "critical": 0,
           "confirmed": false,
-          "wave_ms": 2228,
+          "wave_ms": 1419,
           "slack_channels": [],
           "note": "익일 선보충"
         }
@@ -228,7 +252,7 @@
         "23:00"
       ],
       "status": "WARN",
-      "ok_waves": 4,
+      "ok_waves": 14,
       "total_waves": 19
     },
     "phase4_exceptions": {
@@ -280,7 +304,7 @@
           "done_marked": true,
           "stock_still_zero": true,
           "mismatch_detected": true,
-          "status": "INFO"
+          "status": "PASS"
         }
       },
       "status": "PASS"
@@ -289,12 +313,12 @@
       "n_sku": 25000,
       "file_size_mb": 4.9,
       "row_count": 54016,
-      "upload_ms": 4639,
-      "wave_ms": 11127,
-      "candidates": 19274,
-      "status": "WARN",
-      "pivot_upload_ms": 21699,
-      "critical": 0
+      "upload_ms": 2816,
+      "wave_ms": 7907,
+      "candidates": 19299,
+      "status": "PASS",
+      "pivot_upload_ms": 16308,
+      "critical": 1
     }
   },
   "gap_report": [
@@ -302,16 +326,16 @@
       "gap_id": "GAP-01",
       "severity": "HIGH",
       "title": "미할당수량 컬럼 없음",
-      "detail": "가용수량=0 → CRITICAL 감지율 0%. 단, '주문이 잡혔으나 피킹재고=0' 상태는 WMS 긴급보충리스트 컬럼(미할당수량)이 없어 명시적 식별 불가. 가용=0인 일반 품절과 구분하려면 WMS 별도 CSV 연동 필요."
+      "detail": "가용수량=0 → CRITICAL 감지율 83%. 단, '주문이 잡혔으나 피킹재고=0' 상태는 WMS 긴급보충리스트 컬럼(미할당수량)이 없어 명시적 식별 불가. 가용=0인 일반 품절과 구분하려면 WMS 별도 CSV 연동 필요."
     }
   ],
   "summary": {
     "phase_statuses": {
-      "phase2_critical": "WARN",
+      "phase2_critical": "PASS",
       "phase3_timeline": "WARN",
       "phase4_exceptions": "PASS",
       "phase5_verification": "PASS",
-      "phase1_perf": "WARN"
+      "phase1_perf": "PASS"
     },
     "total_gaps": 1,
     "high_gaps": 1,

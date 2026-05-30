@@ -13,6 +13,7 @@ Phase 6: GAP 리포트 출력
 import json
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, ".")
@@ -28,7 +29,7 @@ from app.models.worker import Worker
 from app.services.slack_service import build_wave_messages_v2
 
 from tests.oneday.generate_oneday_data import (
-    gen_snapshot, gen_outbound, gen_pivot, time_to_elapsed, OUTDIR,
+    gen_snapshot, gen_outbound, gen_pivot, time_to_elapsed,
 )
 
 client = TestClient(app, raise_server_exceptions=False)
@@ -696,8 +697,8 @@ def phase5_verification() -> dict:
         print(f"  SKU {sku_b}: DONE 미표시 → {tag}")
     r["cases"]["5B_undone_reappears"] = cb
 
-    # 5-C: DONE 표시 O + 재고 여전히 가용=0 → 불일치 감지 여부 (GAP)
-    print("\n  [5-C] DONE 표시 O + 재고 여전히 가용=0 → 불일치 감지 (GAP 예상)")
+    # 5-C: DONE 표시 O + 재고 여전히 가용=0 → verify-done 엔드포인트 감지 (GAP-04b)
+    print("\n  [5-C] DONE 표시 O + 재고 여전히 가용=0 → 불일치 감지 (GAP-04b)")
     cc: dict = {"status": "SKIP"}
     if len(all_tasks) > 2:
         task_c = all_tasks[2]
@@ -705,31 +706,31 @@ def phase5_verification() -> dict:
         with Session(engine) as s:
             t = s.get(ReplenishConfirmedTask, task_c.task_id)
             t.task_status = "DONE"
+            t.done_at = datetime.utcnow()
             s.commit()
         # replenished_skus에 추가 안 함 → 다음 CSV에서 가용=0 유지
 
         _upload("23:05", elapsed=13.5, force_shortage=30)
-        wd_c = _wave("URGENT")
+
+        # verify-done 엔드포인트로 DONE-재고0 불일치 탐지
+        rv = client.get(f"/api/v1/waves/{wave_id}/verify-done", params={"center_cd": "GGH1"})
         mismatch_found = False
-        if wd_c:
-            _approve_confirm(wd_c["wave_id"])
-            rc2 = client.get(f"/api/v1/waves/{wd_c['wave_id']}/candidates")
-            if rc2.status_code == 200:
-                mismatch_found = any(c.get("sku_id") == sku_c for c in rc2.json())
+        if rv.status_code == 200:
+            mismatches = rv.json().get("mismatches", [])
+            mismatch_found = any(m.get("sku_id") == sku_c for m in mismatches)
 
         cc = {
             "sku": sku_c, "done_marked": True, "stock_still_zero": True,
             "mismatch_detected": mismatch_found,
-            "status": "GAP",
+            "status": "PASS" if mismatch_found else "GAP",
         }
-        if not mismatch_found:
-            print(f"  SKU {sku_c}: DONE이지만 재고=0 → 프로그램 감지 안됨 [GAP]")
+        if mismatch_found:
+            print(f"  SKU {sku_c}: DONE이지만 재고=0 → verify-done이 불일치 감지 (PASS)")
+        else:
+            print(f"  SKU {sku_c}: DONE이지만 재고=0 → 감지 실패 [GAP]")
             _gap("GAP-04b", "MEDIUM", "완료 이중검증 미연동",
                  "task_status=DONE으로 표시해도 재고 CSV에서 가용=0이면 불일치를 자동 감지하지 않음. "
                  "재고 재업로드 시 DONE 태스크와 재고를 대조하는 로직 필요.")
-        else:
-            print(f"  SKU {sku_c}: DONE이지만 재고=0 → 재추천됨 (불일치 확인 가능)")
-            cc["status"] = "INFO"
     r["cases"]["5C_mismatch"] = cc
 
     # GAP-02 / GAP-07: distribute 엔드포인트 구현 확인 (section_seq 할당 + JUNIOR 라우팅)

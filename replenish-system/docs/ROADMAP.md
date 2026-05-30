@@ -236,7 +236,7 @@ Phase 1 — 테스트 보강
   [x] test_webhook.py (webhook 33% → 100%, 11 tests)
   [x] test_upload_extended.py (upload 46% → 77%, 11 tests)
   [x] test_waves_extended.py (waves 62% → 70%, 11 tests) — distribute(GAP-07) 완전 커버
-  [ ] GAP-04b 완료 이중검증 구현
+  [x] GAP-04b 완료 이중검증 구현 (verification_service.py 100%, verify-done 엔드포인트, 시뮬 5-C PASS)
 
 Phase 2 — 보안 강화
   [ ] 인증 토큰 exp 클레임 추가
