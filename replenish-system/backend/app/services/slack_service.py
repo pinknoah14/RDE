@@ -1,3 +1,4 @@
+import time
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
@@ -22,15 +23,50 @@ def _get_bot_token(session: Session) -> str:
         return ""
 
 
+def _cfg_int(key: str, session: Session, default: int) -> int:
+    try:
+        return int(get_config(key, session))
+    except (KeyError, ValueError, TypeError):
+        return default
+
+
+def _post_with_retry(
+    client: WebClient,
+    channel: str,
+    text: str,
+    max_attempts: int,
+    base_delay: float,
+) -> tuple[bool, str | None, str | None, int]:
+    """Slack 메시지 전송 + 지수 백오프 재시도.
+
+    반환: (성공여부, slack_ts, error_message, 시도횟수)
+    """
+    last_error: str | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            resp = client.chat_postMessage(channel=channel, text=text)
+            return True, resp.get("ts"), None, attempt
+        except Exception as exc:  # noqa: BLE001 — Slack SDK 다양한 예외 포괄
+            last_error = str(exc)
+            if attempt < max_attempts:
+                time.sleep(base_delay * (2 ** (attempt - 1)))  # 1s, 2s, 4s ...
+    return False, None, last_error, max_attempts
+
+
 def send_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
     """Slack으로 웨이브 메시지 전송 (v2.0 현장 형식).
 
     bot_token 미설정 시 queue에만 저장.
     v2.3: build_wave_messages_v2 (text 라인 형식) 사용. 배치 그룹 절단 방지 포함.
+    v2.4 (GAP-06): 전송 실패 시 지수 백오프 재시도(slack_max_retries회).
     """
     bot_token = _get_bot_token(session)
+    max_retries = _cfg_int("slack_max_retries", session, 3)
+    retry_base = _cfg_int("slack_retry_base_sec", session, 1)
     channel_messages = build_wave_messages_v2(wave_id, session)
     results: dict[str, Any] = {"sent": [], "queued": [], "failed": []}
+
+    client = WebClient(token=bot_token) if bot_token else None
 
     for channel, messages in channel_messages.items():
         for msg_idx, text in enumerate(messages):
@@ -41,26 +77,76 @@ def send_wave_messages(wave_id: int, session: Session) -> dict[str, Any]:
                 blocks_json=None,
             )
 
-            if bot_token:
-                try:
-                    client = WebClient(token=bot_token)
-                    resp = client.chat_postMessage(channel=channel, text=text)
+            if client:
+                ok, ts, err, attempts = _post_with_retry(
+                    client, channel, text, max_retries, retry_base
+                )
+                queue_entry.retry_count = attempts - 1
+                if ok:
                     queue_entry.queue_status = "SENT"
-                    queue_entry.slack_ts = resp.get("ts")
+                    queue_entry.slack_ts = ts
                     queue_entry.sent_at = datetime.utcnow()
                     results["sent"].append(channel)
-                    logger.info("Slack 전송", wave_id=wave_id, channel=channel, ts=resp.get("ts"))
-                except Exception as exc:
+                    logger.info("Slack 전송", wave_id=wave_id, channel=channel, ts=ts)
+                else:
                     queue_entry.queue_status = "FAILED"
-                    queue_entry.error_message = str(exc)[:500]
-                    results["failed"].append({"channel": channel, "error": str(exc)})
-                    logger.error("Slack 전송 실패", wave_id=wave_id, channel=channel, error=str(exc))
+                    queue_entry.error_message = (err or "")[:500]
+                    results["failed"].append({"channel": channel, "error": err})
+                    logger.error(
+                        "Slack 전송 실패", wave_id=wave_id, channel=channel,
+                        error=err, attempts=attempts,
+                    )
             else:
                 queue_entry.queue_status = "WAITING"
                 if msg_idx == 0:
                     results["queued"].append(channel)
 
             session.add(queue_entry)
+
+    session.commit()
+    return results
+
+
+def retry_failed_messages(wave_id: int, session: Session) -> dict[str, Any]:
+    """FAILED 상태 큐 항목을 재전송 (GAP-06 수동 재시도).
+
+    bot_token 미설정 시 아무 동작 안 함.
+    """
+    bot_token = _get_bot_token(session)
+    results: dict[str, Any] = {"retried": [], "still_failed": [], "skipped": 0}
+
+    if not bot_token:
+        results["skipped"] = -1  # 토큰 없음 신호
+        return results
+
+    max_retries = _cfg_int("slack_max_retries", session, 3)
+    retry_base = _cfg_int("slack_retry_base_sec", session, 1)
+    client = WebClient(token=bot_token)
+
+    failed = session.exec(
+        select(ReplenishTaskQueue).where(
+            ReplenishTaskQueue.wave_id == wave_id,
+            ReplenishTaskQueue.queue_status == "FAILED",
+        )
+    ).all()
+
+    for q in failed:
+        ok, ts, err, attempts = _post_with_retry(
+            client, q.slack_channel, q.message_text, max_retries, retry_base
+        )
+        q.retry_count += attempts
+        if ok:
+            q.queue_status = "SENT"
+            q.slack_ts = ts
+            q.sent_at = datetime.utcnow()
+            q.error_message = None
+            results["retried"].append(q.slack_channel)
+            logger.info("Slack 재전송 성공", wave_id=wave_id, channel=q.slack_channel, ts=ts)
+        else:
+            q.error_message = (err or "")[:500]
+            results["still_failed"].append({"channel": q.slack_channel, "error": err})
+            logger.error("Slack 재전송 실패", wave_id=wave_id, channel=q.slack_channel, error=err)
+        session.add(q)
 
     session.commit()
     return results

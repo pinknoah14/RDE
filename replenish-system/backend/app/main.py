@@ -29,6 +29,7 @@ from app.api import (
     audit,
     events,
     webhook,
+    schedule,
 )
 
 
@@ -120,3 +121,4 @@ app.include_router(dashboard.router,     prefix="/api/v1/dashboard",     tags=["
 app.include_router(admin.router,         prefix="/api/v1/admin",         tags=["admin"])
 app.include_router(audit.router,         prefix="/api/v1/audit-log",     tags=["audit"])
 app.include_router(webhook.router,       prefix="/api/webhook",           tags=["webhook"])
+app.include_router(schedule.router,      prefix="/api/v1/schedule",       tags=["schedule"])

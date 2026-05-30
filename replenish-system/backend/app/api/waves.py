@@ -371,6 +371,7 @@ def distribute_wave_tasks(
     - section_size 미지정: 활성 작업자(is_active=True) 수만큼 섹션 분할
     - section_size 지정: 섹션당 최대 N개로 균등 분할
     - 활성 작업자 없고 section_size 미지정: 기본 6개씩 섹션 분할
+    - GAP-07: JUNIOR 작업자에게는 소량(total_qty 낮은) 태스크를 우선 배정
     """
     wave = session.get(Wave, wave_id)
     if not wave:
@@ -393,41 +394,52 @@ def distribute_wave_tasks(
     for t in tasks:
         groups[f"{t.slack_channel}|{t.worker_type}"].append(t)
 
-    # 활성 작업자를 work_type 기준으로 분류
+    # 활성 작업자를 work_type 기준으로 분류 (GAP-07: 숙련자/JUNIOR 분리)
     active_workers = session.exec(
         select(Worker).where(Worker.is_active == True)  # noqa: E712
     ).all()
-    workers_by_type: dict[str, list[Worker]] = defaultdict(list)
+    experts_by_type: dict[str, list[Worker]] = defaultdict(list)
+    juniors_by_type: dict[str, list[Worker]] = defaultdict(list)
     for w in active_workers:
-        workers_by_type[w.work_type].append(w)
+        if w.skill_level == "JUNIOR":
+            juniors_by_type[w.work_type].append(w)
+        else:
+            experts_by_type[w.work_type].append(w)
 
     assigned = 0
     sections_summary: dict[str, int] = {}
 
     for group_key, task_list in groups.items():
         channel, wtype = group_key.split("|", 1)
-        compatible: list[Worker] = workers_by_type.get(wtype, [])
+        experts: list[Worker] = experts_by_type.get(wtype, [])
+        juniors: list[Worker] = juniors_by_type.get(wtype, [])
+
+        # GAP-07: JUNIOR에게는 소량·단순 태스크를 우선 배정.
+        # total_qty 오름차순 정렬 → 앞쪽(소량)을 JUNIOR가, 뒤쪽(대량)을 숙련자가 가져가도록
+        # 작업자 순서를 [juniors..., experts...]로 구성.
+        ordered_tasks = sorted(task_list, key=lambda t: t.total_qty)
+        ordered_workers: list[Worker] = juniors + experts
 
         # 섹션 수 결정
         if body.section_size and body.section_size > 0:
-            n_sec = max(1, (len(task_list) + body.section_size - 1) // body.section_size)
-        elif compatible:
-            n_sec = len(compatible)
+            n_sec = max(1, (len(ordered_tasks) + body.section_size - 1) // body.section_size)
+        elif ordered_workers:
+            n_sec = len(ordered_workers)
         else:
-            n_sec = max(1, (len(task_list) + 5) // 6)  # 기본 6개씩
+            n_sec = max(1, (len(ordered_tasks) + 5) // 6)  # 기본 6개씩
 
-        block = max(1, (len(task_list) + n_sec - 1) // n_sec)
+        block = max(1, (len(ordered_tasks) + n_sec - 1) // n_sec)
 
-        for i, task in enumerate(task_list):
+        for i, task in enumerate(ordered_tasks):
             sec_idx = i // block          # 0-based
             task.section_seq = sec_idx + 1
             task.list_seq = (i % block) + 1
-            if sec_idx < len(compatible):
-                task.worker_id = compatible[sec_idx].worker_id
+            if sec_idx < len(ordered_workers):
+                task.worker_id = ordered_workers[sec_idx].worker_id
             session.add(task)
 
-        sections_summary[f"{channel}_{wtype}"] = min(n_sec, (len(task_list) + block - 1) // block)
-        assigned += len(task_list)
+        sections_summary[f"{channel}_{wtype}"] = min(n_sec, (len(ordered_tasks) + block - 1) // block)
+        assigned += len(ordered_tasks)
 
     write_audit_log(
         entity_type="wave",
