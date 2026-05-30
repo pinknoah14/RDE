@@ -254,6 +254,8 @@ def build_wave_messages_v2(wave_id: int, session: Session) -> dict[str, list[str
             "sku_name": task.sku_name,
             "batch_tag": tags.get("batch_tag"),
             "batch_seq": tags.get("batch_seq"),
+            "section_seq": task.section_seq,
+            "worker_id": task.worker_id,
         })
 
     result: dict[str, list[str]] = {}
@@ -265,14 +267,51 @@ def build_wave_messages_v2(wave_id: int, session: Session) -> dict[str, list[str
             suffix = " (도보)"
         elif group == "junior":
             suffix = " (미숙련 후순위)"
-        result[key] = build_wave_message_v2(
-            tasks=task_list,
-            locations_map=locations_map,
-            wave_name=wave_name + suffix,
-            channel_label=channel_label,
-            worker_type=wt,
-            items_per_msg=items_per_msg,
-        )
+
+        # section_seq가 설정된 경우 섹션별로 분리하여 각각 메시지 생성
+        section_ids = sorted({
+            t["section_seq"] for t in task_list if t.get("section_seq") is not None
+        })
+
+        if len(section_ids) > 1:
+            all_messages: list[str] = []
+            for sec in section_ids:
+                sec_tasks = [t for t in task_list if t.get("section_seq") == sec]
+                wid = next((t["worker_id"] for t in sec_tasks if t.get("worker_id")), None)
+                assigned_worker = worker_map.get(str(wid)) if wid else None
+                sec_label = f" [섹션{sec}"
+                if assigned_worker:
+                    sec_label += f"/{assigned_worker.worker_name}"
+                sec_label += "]"
+                all_messages.extend(build_wave_message_v2(
+                    tasks=sec_tasks,
+                    locations_map=locations_map,
+                    wave_name=wave_name + suffix + sec_label,
+                    channel_label=channel_label,
+                    worker_type=wt,
+                    items_per_msg=items_per_msg,
+                ))
+            # section_seq 미설정 태스크가 섞여 있는 경우 별도 처리
+            unsectioned = [t for t in task_list if t.get("section_seq") is None]
+            if unsectioned:
+                all_messages.extend(build_wave_message_v2(
+                    tasks=unsectioned,
+                    locations_map=locations_map,
+                    wave_name=wave_name + suffix,
+                    channel_label=channel_label,
+                    worker_type=wt,
+                    items_per_msg=items_per_msg,
+                ))
+            result[key] = all_messages
+        else:
+            result[key] = build_wave_message_v2(
+                tasks=task_list,
+                locations_map=locations_map,
+                wave_name=wave_name + suffix,
+                channel_label=channel_label,
+                worker_type=wt,
+                items_per_msg=items_per_msg,
+            )
 
     return result
 

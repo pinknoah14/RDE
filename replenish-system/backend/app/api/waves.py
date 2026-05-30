@@ -1,8 +1,10 @@
 import json
+from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -11,10 +13,12 @@ from app.core.exceptions import RDEException
 from app.core.logging_config import get_logger
 from app.models.task import ReplenishCandidate, ReplenishConfirmedTask, ReplenishTaskLocation
 from app.models.wave import Wave
+from app.models.worker import Worker
 from app.models.zone import ZoneConfig
 from app.services.audit_service import write_audit_log
 from app.services.wave_builder import run_algorithm
 from app.services.csv_parser import extract_zone_prefix
+from app.services.print_service import generate_print_html
 from app.services.state_machine import InvalidTransitionError, transition_candidate
 from app.services.wave_builder import calculate_prestock_cutoff
 
@@ -40,6 +44,10 @@ class CandidatePatch(BaseModel):
 
 class AssignRequest(BaseModel):
     worker_id: int
+
+
+class DistributeRequest(BaseModel):
+    section_size: int | None = None  # None → 활성 작업자 수 기준; >0 → 섹션당 최대 수
 
 
 class UrgentWaveRequest(BaseModel):
@@ -350,6 +358,98 @@ def confirm_wave(
     session: Session = Depends(get_session),
 ) -> Any:
     return _confirm_wave_internal(wave_id, session, confirmed_by=confirmed_by)
+
+
+@router.post("/{wave_id}/distribute")
+def distribute_wave_tasks(
+    wave_id: int,
+    body: DistributeRequest = Body(default=DistributeRequest()),
+    session: Session = Depends(get_session),
+) -> Any:
+    """READY 태스크를 활성 작업자에게 균등 배분하여 section_seq / list_seq / worker_id 설정.
+
+    - section_size 미지정: 활성 작업자(is_active=True) 수만큼 섹션 분할
+    - section_size 지정: 섹션당 최대 N개로 균등 분할
+    - 활성 작업자 없고 section_size 미지정: 기본 6개씩 섹션 분할
+    """
+    wave = session.get(Wave, wave_id)
+    if not wave:
+        raise RDEException(code="WAVE_NOT_FOUND", message="웨이브를 찾을 수 없습니다.", status_code=404)
+
+    tasks = session.exec(
+        select(ReplenishConfirmedTask)
+        .where(
+            ReplenishConfirmedTask.wave_id == wave_id,
+            ReplenishConfirmedTask.task_status == "READY",
+        )
+        .order_by(ReplenishConfirmedTask.list_section, ReplenishConfirmedTask.task_id)
+    ).all()
+
+    if not tasks:
+        return {"assigned": 0, "sections": {}}
+
+    # (slack_channel, worker_type) 그룹별 태스크 분류
+    groups: dict[str, list] = defaultdict(list)
+    for t in tasks:
+        groups[f"{t.slack_channel}|{t.worker_type}"].append(t)
+
+    # 활성 작업자를 work_type 기준으로 분류
+    active_workers = session.exec(
+        select(Worker).where(Worker.is_active == True)  # noqa: E712
+    ).all()
+    workers_by_type: dict[str, list[Worker]] = defaultdict(list)
+    for w in active_workers:
+        workers_by_type[w.work_type].append(w)
+
+    assigned = 0
+    sections_summary: dict[str, int] = {}
+
+    for group_key, task_list in groups.items():
+        channel, wtype = group_key.split("|", 1)
+        compatible: list[Worker] = workers_by_type.get(wtype, [])
+
+        # 섹션 수 결정
+        if body.section_size and body.section_size > 0:
+            n_sec = max(1, (len(task_list) + body.section_size - 1) // body.section_size)
+        elif compatible:
+            n_sec = len(compatible)
+        else:
+            n_sec = max(1, (len(task_list) + 5) // 6)  # 기본 6개씩
+
+        block = max(1, (len(task_list) + n_sec - 1) // n_sec)
+
+        for i, task in enumerate(task_list):
+            sec_idx = i // block          # 0-based
+            task.section_seq = sec_idx + 1
+            task.list_seq = (i % block) + 1
+            if sec_idx < len(compatible):
+                task.worker_id = compatible[sec_idx].worker_id
+            session.add(task)
+
+        sections_summary[f"{channel}_{wtype}"] = min(n_sec, (len(task_list) + block - 1) // block)
+        assigned += len(task_list)
+
+    write_audit_log(
+        entity_type="wave",
+        entity_id=wave_id,
+        action="distributed",
+        actor="관리자",
+        after={"assigned": assigned, "sections": sections_summary},
+        session=session,
+    )
+    session.commit()
+    logger.info("웨이브 태스크 배분", wave_id=wave_id, assigned=assigned, sections=sections_summary)
+    return {"assigned": assigned, "sections": sections_summary}
+
+
+@router.get("/{wave_id}/print", response_class=HTMLResponse)
+def print_wave(wave_id: int, session: Session = Depends(get_session)) -> str:
+    """서버 다운 대비 인쇄용 웨이브 리스트 HTML 반환 (GAP-05).
+
+    브라우저에서 열어 🖨️ 인쇄 버튼으로 출력하거나 PDF 저장 가능.
+    섹션 배분이 완료된 경우 작업자별 섹션으로 분류됨.
+    """
+    return generate_print_html(wave_id, session)
 
 
 @router.post("/urgent-from-dashboard", status_code=201)
