@@ -237,7 +237,10 @@ replenish-system\
 
 | 버전 | 주요 변경 |
 |---|---|
-| v2.4 | CSV 컬럼명 22개 시스템 설정 런타임 변경, 업로드 성능 개선 (bulk insert·N+1 제거), GitHub Webhook 배포 엔드포인트, WAL checkpoint DB 내보내기 버그 수정 |
+| v2.7 | 원데이 시뮬레이션 GAP 검사 API 기반으로 전환 (GAP 8개 → 1개), 테스트 242 passed |
+| v2.6 | 무한 새로고침 버그 수정, GAP-03·06·07 신규 테스트 (`test_gap_features.py`), `schedule.py` 84% 커버리지 |
+| v2.5 | GAP 해소 Sprint: GAP-02(인당배분) · GAP-03(휴게/마감 엔드포인트) · GAP-04a(중복SKU방지) · GAP-05(인쇄 fallback) · GAP-06(Slack재시도) · GAP-07(JUNIOR라우팅) · GAP-08(판매집계 O(1)) |
+| v2.4 | CSV 컬럼명 22개 시스템 설정 런타임 변경, 업로드 성능 개선 (bulk insert·N+1 제거), GitHub Webhook 배포 엔드포인트, WAL checkpoint DB 내보내기 버그 수정, PIN 인증 게이트, 웨이브 감사 로그 |
 | v2.3 | 코드 품질 정제 (Ruff 0 errors, 미사용 코드 제거, console.error → toast 통일, 타입 정확도 개선) |
 | v2.2 | README, 로깅, 환경변수 분리 |
 | v2.1 | 14:00 미할당 폭발 대응, 배치 그룹 절단 방지 |
