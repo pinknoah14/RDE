@@ -21,10 +21,16 @@ function authHeaders(base: Record<string, string> = {}): Record<string, string> 
   return t ? { ...base, Authorization: `Bearer ${t}` } : base;
 }
 
-/** 401 → 토큰 폐기 후 로그인 화면으로 (페이지 새로고침 → PinGate 재평가) */
+/**
+ * 401 처리.
+ * - 토큰이 있던 상태의 401 = 세션 만료/위조 → 토큰 폐기 후 새로고침(PinGate 재평가).
+ * - 토큰이 없던 상태의 401 = 정상 로그인 흐름(PIN 미입력/오입력) → 새로고침 금지.
+ *   (verify-pin 빈 PIN 탐지 시 401을 reload로 처리하면 무한 새로고침 루프 발생)
+ */
 function handleUnauthorized() {
+  const hadToken = !!auth.get();
   auth.clear();
-  if (typeof window !== "undefined") window.location.reload();
+  if (hadToken && typeof window !== "undefined") window.location.reload();
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
