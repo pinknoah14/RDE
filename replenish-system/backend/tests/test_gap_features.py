@@ -70,6 +70,7 @@ def _make_wave(db, status="CONFIRMED", wave_type="REGULAR"):
         wave_type=wave_type,
         wave_status=status,
         target_sku_count=5,
+        created_by="테스트",
     )
     db.add(wave)
     db.commit()
@@ -84,9 +85,13 @@ def _add_task(db, wave_id, status="READY", seq=1, qty=10, sku="SKU0"):
         sku_id=sku,
         sku_name=f"상품_{sku}",
         picking_bin="RA-01-01",
+        zone="RA",
         total_qty=qty,
         task_status=status,
         slack_channel="R존",
+        worker_type="FORKLIFT",
+        confirm_type="AUTO",
+        confirmed_by="테스트",
         section_seq=seq,
     )
     db.add(task)
